@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-01-15 13:38:39 shimo>
+  Time-stamp: <2002-02-17 21:47:54 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.9 2002/01/10 13:20:57 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.10 2002/01/24 03:03:13 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,10 +71,10 @@ double calcmcpval(double *datvec, double **repmat, int mm, int nb,
 		  int *ass, int *cass, int alen, double **wt);
 double calckhpval(double *datvec, double **repmat, int mm, int nb,
 		  int *ass, int *cass, int alen, double **wt);
-double *getseval(double *pval, int m, int nb, double *seval);
+double *getseval(double *pval, int m, double nb, double *seval);
 
 /* multiscale bootstrap routines */
-int rcalpval(double *cnts, double *rr, int *bb, int kk,
+int rcalpval(double *cnts, double *rr, double *bb, int kk,
 	     double *pv, double *se, double *pv0, double *se0, 
 	     double *rss, double *df, 
 	     double **betap, double ***vmatp, double kappa);
@@ -100,6 +100,7 @@ char *fname_pv = NULL; char *fext_pv = ".pv";
 char *fname_ci = NULL; char *fext_ci = ".ci";
 char *fname_vt = NULL; char *fext_vt = ".vt";
 char *fname_pa = NULL; char *fext_pa = ".pa";
+char *fname_svt = NULL; char *fext_svt = ".svt";
 
 /* for the scales */
 int kk=0; /* no. of scales */
@@ -127,7 +128,9 @@ double ***statmats=NULL; /* (kk,cm,bb[i])-array of test statistics */
 double *obsvec=NULL; /* cm-vector of observed statistics */
 
 /* for cnt file */
-double **cntmat=NULL; /* (kk,cm)-matrix of counts */
+double **rrmat=NULL;
+double **bbmat=NULL;
+double **cntmat=NULL; /* (cm,kk)-matrix of counts */
 
 /* misc */
 double threshold=0.0; /* the region is defined as x <= thereshold */
@@ -137,11 +140,14 @@ double varadd=1.0; /* adding to wtmat */
 double kappa=1.0; /* weight for the curvature */
 double vceps2;
 double mleeps;
+double congbpadd;
 
 /* mspar */
 int kk0=10;
 double rr0[]={0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4};
-
+int kk1=0;
+double *rr1=NULL;
+int *bb1=NULL;
 
 /* for mc-tests: p-values and se (cm-vector) */
 double *npvec, *nsvec; /* naive p-value */
@@ -155,7 +161,7 @@ double *pvvec, *sevec ; /* multi-scale pvalue */
 double *pv0vec, *se0vec; /* pvalue for the derived naive method */
 
 /* bayes posterior prob */
-double *bapvec=NULL, *basvec=NULL;
+double *bapvec=NULL;
 double bapcoef=1.0;
 
 /* for msboot pv */
@@ -184,6 +190,7 @@ double **ei0mat=NULL; /* error index of cimat */
 /* work */
 double *buf1; /* mm-vector */
 double *buf2; /* cm0-vector */
+double *buf3; /* mm-vector */
 
 /* switches */
 int sw_pvaldist;
@@ -197,15 +204,17 @@ int sw_domc=1; /* dont skip mc-tests */
 int sw_doau=1; /* dont skip au-tests */
 int sw_dobp=1; /* dont skip bp-tests */
 int sw_nosort=0; /* dont sort the items */
-int sw_lmat=0; /* large mat */
 int sw_mle=1; /* use mle DEFAULT*/
 int sw_fastrep=0; /* rescaling from r=1 */
-int find_i0();
+int sw_multi=0; /* multiple input files */
+int sw_cong=1; /* overall congruence */
+int find_i0(double *rr, int kk);
 
 /* main routines */
 int do_rmtmode();
 int do_repmode();
 int do_cntmode();
+int do_rmtmultimode();
 /* sub routines */
 int do_bptest();
 int do_mctest();
@@ -216,7 +225,8 @@ int do_batest();
 int write_pv(int sw_bp, int sw_ba, int sw_mc, int sw_au);
 int write_ci();
 int write_rep();
-int write_cnt();
+int write_cnt1();
+int write_cnt2();
 
 int main(int argc, char** argv)
 {
@@ -230,7 +240,7 @@ int main(int argc, char** argv)
   for(i=j=1;i<argc;i++) {
     if(argv[i][0] != '-') {
       switch(j) {
-      case 1: fname_in=fname_out=argv[i]; break;
+      case 1: fname_in=argv[i]; break;
       case 2: fname_out=argv[i]; break;
       default: byebye();
       }
@@ -324,28 +334,35 @@ int main(int argc, char** argv)
 	 sscanf(argv[i+1],"%d",&dfmin) != 1)
 	byebye();
       i+=1;
-    } else if(streq(argv[i],"-L")) {
-      sw_lmat=1;
     } else if(streq(argv[i],"--mle")) {
       sw_mle=1;
     } else if(streq(argv[i],"--wls")) {
       sw_mle=0;
     } else if(streq(argv[i],"-f")) {
       sw_fastrep=1;
+    } else if(streq(argv[i],"-g")) {
+      sw_multi=1;
     } else if(streq(argv[i],"--mleeps")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&mleeps) != 1)
 	byebye();
       i+=1;
+    } else if(streq(argv[i],"--congbp")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&congbpadd) != 1)
+	byebye();
+      i+=1;
     } else byebye();
   }
 
-  if(fname_out) fname_out=rmvaxt(fname_out);
+  if(fname_in && !fname_out) fname_out=fname_in;
+  fname_out=rmvaxt(fname_out);
   if(sw_incnt+sw_inrep>1) error("only one of -C and -R can be specified");
   if(sw_incnt+sw_inrep==0) { /* rmt mode */
     fname_rmt=fname_in;
     fname_pv=fname_ci=fname_cnt=fname_rep=fname_out;
-    do_rmtmode();
+    if(sw_multi) do_rmtmultimode();
+    else do_rmtmode();
   } else if(sw_inrep) { /* rep mode */
     fname_rep=fname_in;
     fname_pv=fname_ci=fname_cnt=fname_out;
@@ -360,73 +377,16 @@ int main(int argc, char** argv)
   exit(0);
 }
 
+
 /*
-  (1) input rmt file
-  (2) read association file and sort the items
-  (3) call mctest and bootrep
+  input: datvec, mm
 */
-int do_rmtmode()
+int read_assoc()
 {
   int i,j;
   char *cbuf;
   FILE *fp;
   dvec **dvbuf;
-  int kk1,*bb1,i0,nb;
-  double *rr1,*repmean,x;
-
-  /* reading rmt */
-  mm=kk=0;
-  if(fname_rmt){ /* binary read from file */
-    fp=openfp(fname_rmt,fext_rmt,"rb",&cbuf);
-    printf("\n# reading %s",cbuf);
-    datvec=fread_bvec(fp,&mm); 
-    rr=fread_bvec(fp,&kk); 
-    bb=fread_bivec(fp,&kk); 
-    i=fread_bi(fp); if(i != kk) error("wrong size in rmt");
-    repmats=NEW_A(kk,double**);
-    for(i=0;i<kk;i++) {
-      repmats[i]=sw_lmat?fread_blmat(fp,&mm,&(bb[i])):
-	fread_bmat(fp,&mm,&(bb[i])); putdot();
-    }
-    fclose(fp); FREE(cbuf);
-  } else { /* ascii read from stdin */
-    printf("\n# reading from stdin");
-    datvec=read_vec(&mm);
-    rr=read_vec(&kk);
-    bb=read_ivec(&kk);
-    i=read_i(); if(i != kk) error("wrong size in rmt");
-    repmats=NEW_A(kk,double**);
-    for(i=0;i<kk;i++) {
-      repmats[i]=sw_lmat?read_lmat(&mm,&(bb[i])):
-	read_mat(&mm,&(bb[i])); putdot();
-    }
-  }
-
-  printf("\n# K:%d",kk);
-  printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
-  printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
-  printf("\n# M:%d",mm);
-
-  if(kk<1) return 0;
-  i0=find_i0(); /* i0 is for scale=1 */
-
-  if(sw_fastrep) { /* rescaling approximation */
-    /* reading parameters */
-    if(fname_pa!=NULL) {
-      fp=openfp(fname_pa,fext_pa,"r",&cbuf);
-      printf("\n# reading %s",cbuf);
-      kk1=0; rr1=fread_vec(fp,&kk1);
-      fclose(fp); FREE(cbuf);
-    } else {
-      kk1=kk0; rr1=rr0;
-    }
-    printf("\n# RESCALING");
-    printf("\n# K:%d",kk1);
-    printf("\n# R:"); for(i=0;i<kk1;i++) printf("%g ",rr1[i]);
-    if(kk1<2) sw_doau=0;
-  } else { /* without rescaling approximation */
-    if(kk<2) sw_doau=0;
-  }
 
   /* reading association vector */
   if(fname_ass){
@@ -460,13 +420,11 @@ int do_rmtmode()
   if(cm<cm0) printf(" -> %d",cm);
 
   /* allocating the memory */
-  buf1=new_vec(mm); buf2=new_vec(cm0); orderv=new_ivec(cm0);
-  dvbuf=NEW_A(cm0,dvec*);
-  obsvec=new_vec(cm);
-  assvec=NEW_A(cm,int*); asslen=NEW_A(cm,int);
-  cassvec=NEW_A(cm,int*);
+  obsvec=new_vec(cm); orderv=new_ivec(cm0);
+  assvec=NEW_A(cm,int*); asslen=NEW_A(cm,int); cassvec=NEW_A(cm,int*);
 
   /* sorting the association by the test statistics */
+  dvbuf=NEW_A(cm0,dvec*);
   for(i=0;i<cm0;i++) {
     dvbuf[i]=NEW(dvec); dvbuf[i]->len=asslen0[i];
     dvbuf[i]->ve=new_vec(asslen0[i]);
@@ -504,6 +462,15 @@ int do_rmtmode()
   }
   FREE(dvbuf); FREE(assvec0); FREE(cassvec0); free_ivec(asslen0); 
 
+  return 0;
+}
+
+
+int read_alpha()
+{
+  char *cbuf;
+  FILE *fp;
+
   /* reading alphas (for bootrep) */
   if(fname_vt) {
       fp=openfp(fname_vt,fext_vt,"r",&cbuf);
@@ -513,6 +480,127 @@ int do_rmtmode()
   } else {
     nalpha=nalpha0; alphavec=alphavec0;
   }
+
+  return 0;
+}
+
+int read_scale()
+{
+  int i;
+  char *cbuf;
+  FILE *fp;
+
+  /* reading parameters */
+  if(fname_pa!=NULL) {
+    fp=openfp(fname_pa,fext_pa,"r",&cbuf);
+    printf("\n# reading %s",cbuf);
+    kk1=0; rr1=fread_vec(fp,&kk1);
+    fclose(fp); FREE(cbuf);
+  } else {
+    kk1=kk0; rr1=rr0;
+  }
+  printf("\n# RESCALING");
+  printf("\n# K:%d",kk1);
+  printf("\n# R:"); for(i=0;i<kk1;i++) printf("%g ",rr1[i]);
+
+  return 0;
+}
+
+/*
+  input1: cm,mm,assvec,asslen, rr,bb,kk,repmats,
+  input2: sw_fastrep,rr1,kk1
+  output1: statmats
+  output2: rr,bb,kk
+  work: buf1,buf2,buf3
+ */
+int genrep()
+{
+  int i,j,i0;
+  int nb;
+  double x;
+
+  if(sw_fastrep) { /* rescaling approximation */
+    i0=find_i0(rr,kk); nb=bb[i0];
+    bb1=new_ivec(kk1); for(i=0;i<kk1;i++) bb1[i]=nb;
+    statmats=NEW_A(kk1,double**);
+    for(i=0;i<kk1;i++) statmats[i]=new_lmat(cm,nb);
+    for(j=0;j<mm;j++) {
+      x=0.0; for(i=0;i<nb;i++) x+=repmats[i0][j][i];
+      buf3[j]=x/nb;
+    }
+    for(i=0;i<kk1;i++) {
+      repminmaxsrs(repmats[i0],statmats[i],mm,nb,cm,
+		   assvec,asslen,buf1,buf2,buf3,
+		   sqrt(rr[i0]/rr1[i]));
+      putdot();
+    }
+    kk=kk1; rr=rr1; bb=bb1;
+  } else { /* without rescaling approximation */
+    statmats=NEW_A(kk,double**);
+    for(i=0;i<kk;i++)
+      statmats[i]=new_lmat(cm,bb[i]);
+    /* calculate the statistics for the replicates */
+    for(i=0;i<kk;i++) {
+      repminmaxs(repmats[i],statmats[i],mm,bb[i],cm,
+		 assvec,asslen,buf1,buf2);
+      putdot();
+    }
+  }
+
+  return 0;
+}
+
+
+/*
+  (1) input rmt file
+  (2) read association file and sort the items
+  (3) call mctest and bootrep
+*/
+int do_rmtmode()
+{
+  int i;
+  char *cbuf;
+  FILE *fp;
+
+  /* reading rmt */
+  mm=kk=0;
+  if(fname_rmt){ /* binary read from file */
+    fp=openfp(fname_rmt,fext_rmt,"rb",&cbuf);
+    printf("\n# reading %s",cbuf);
+    datvec=fread_bvec(fp,&mm); 
+    rr=fread_bvec(fp,&kk); bb=fread_bivec(fp,&kk); 
+    i=fread_bi(fp); if(i != kk) error("wrong size in rmt");
+    repmats=NEW_A(kk,double**);
+    for(i=0;i<kk;i++) {
+      repmats[i]=fread_blmat(fp,&mm,&(bb[i])); putdot();
+    }
+    fclose(fp); FREE(cbuf);
+  } else { /* ascii read from stdin */
+    printf("\n# reading from stdin");
+    datvec=read_vec(&mm);
+    rr=read_vec(&kk); bb=read_ivec(&kk);
+    i=read_i(); if(i != kk) error("wrong size in rmt");
+    repmats=NEW_A(kk,double**);
+    for(i=0;i<kk;i++) {
+      repmats[i]=read_lmat(&mm,&(bb[i])); putdot();
+    }
+  }
+
+  printf("\n# K:%d",kk);
+  printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
+  printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
+  printf("\n# M:%d",mm);
+  buf1=new_vec(mm); buf3=new_vec(mm); 
+
+  if(kk<1) return 0;
+
+  /* reading association vector */
+  read_assoc();
+  buf2=new_vec(cm0);
+
+  /* reading parameters */
+  read_alpha();
+  if(sw_fastrep) read_scale();
   
   /* bayes */
   if(sw_doba) do_batest();
@@ -522,38 +610,9 @@ int do_rmtmode()
 
   if(sw_doau||sw_dobp||sw_outrep||sw_outcnt) {
     printf("\n# calculate replicates of the statistics");
-    if(sw_fastrep) {
-      /* rescaling approximation */
-      nb=bb[i0];
-      bb1=new_ivec(kk1); for(i=0;i<kk1;i++) bb1[i]=nb;
-      statmats=NEW_A(kk1,double**);
-      for(i=0;i<kk1;i++)
-	statmats[i]=sw_lmat?new_lmat(cm,nb):new_mat(cm,nb);
-      repmean=new_vec(mm);
-      for(j=0;j<mm;j++) {
-	x=0.0; for(i=0;i<nb;i++) x+=repmats[i0][j][i];
-	repmean[j]=x/nb;
-      }
-      for(i=0;i<kk1;i++) {
-	repminmaxsrs(repmats[i0],statmats[i],mm,nb,cm,
-		     assvec,asslen,buf1,buf2,repmean,
-		     sqrt(rr[i0]/rr1[i]));
-	putdot();
-      }
-      kk=kk1; rr=rr1; bb=bb1;
-    } else {
-      /* without rescaling approximation */
-      statmats=NEW_A(kk,double**);
-      for(i=0;i<kk;i++)
-	statmats[i]=sw_lmat?new_lmat(cm,bb[i]):new_mat(cm,bb[i]);
-      /* calculate the statistics for the replicates */
-      for(i=0;i<kk;i++) {
-	repminmaxs(repmats[i],statmats[i],mm,bb[i],cm,
-		   assvec,asslen,buf1,buf2);
-	putdot();
-      }
-    }
+    genrep();
   }
+  if(kk<2) sw_doau=0;
 
   /* naive bootstrap */
   if(sw_dobp) do_bptest();
@@ -565,10 +624,315 @@ int do_rmtmode()
     write_pv(sw_dobp,sw_doba,sw_domc,sw_doau);
   if(sw_doau) write_ci();
   if(sw_outrep) write_rep();
-  if(sw_outcnt) write_cnt();
+  if(sw_outcnt) write_cnt1();
 
   return 0;
 }
+
+/*
+  input1: cm,mm,assvec,asslen, "file"
+  input2: sw_fastrep,rr1,kk1
+  output1: cntmat
+  output2: rr,bb,kk
+  work: buf1,buf2,buf3
+ */
+int gencnt(char *file)
+{
+  int i,j,i0;
+  double x,**repmat,**statmat;
+  char *cbuf;
+  FILE *fp;
+  int kk0, *bb0;
+  double *rr0;
+
+  /* reading rmt index */
+  fp=openfp(file,fext_rmt,"rb",&cbuf);
+  printf("\n# reading %s",cbuf);
+  datvec=fread_bvec(fp,&mm); 
+  kk=0; rr=fread_bvec(fp,&kk); bb=fread_bivec(fp,&kk); 
+  i=fread_bi(fp); if(i != kk) error("wrong size in rmt");
+
+  /* prepare */
+  if(sw_fastrep) { /* rescaling approximation */
+    i0=find_i0(rr,kk); 
+    for(i=0;i<=i0;i++) {
+      repmat=fread_blmat(fp,&mm,&(bb[i]));
+      if(i!=i0) free_lmat(repmat,mm);
+    }
+    for(j=0;j<mm;j++) {
+      x=0.0; for(i=0;i<bb[i0];i++) x+=repmat[j][i];
+      buf3[j]=x/bb[i0];
+    }
+    bb1=new_ivec(kk1); for(i=0;i<kk1;i++) bb1[i]=bb[i0];
+    kk0=kk; rr0=rr; bb0=bb;
+    kk=kk1; rr=rr1; bb=bb1;
+  }
+
+  cntmat=new_mat(cm,kk);
+  for(i=0;i<kk;i++) {
+    statmat=new_lmat(cm,bb[i]);
+    /* calc rep */
+    if(sw_fastrep) {
+      repminmaxsrs(repmat,statmat,mm,bb0[i0],cm,
+		   assvec,asslen,buf1,buf2,buf3,
+		   sqrt(rr0[i0]/rr[i]));
+    } else {
+      repmat=fread_blmat(fp,&mm,&(bb[i])); 
+      repminmaxs(repmat,statmat,mm,bb[i],cm,
+		 assvec,asslen,buf1,buf2);
+    }
+    putdot();
+    /* calc cnt */
+    for(j=0;j<cm;j++) {
+      if(sw_smoothcnt) {
+	sort_vec(statmat[j],bb[i]);
+	cntmat[j][i]=cntdist(statmat[j],bb[i],threshold,3);
+      } else {
+	cntmat[j][i]=cntdist(statmat[j],bb[i],threshold,1);	
+      }
+    }
+    if((!sw_fastrep) || (i==kk-1)) free_lmat(repmat,mm);
+    free_lmat(statmat,cm);
+  }
+
+  fclose(fp); FREE(cbuf);
+  return 0;
+}
+
+/*
+  input1: cntmatm, bbm, mf
+  input2: kk, cm
+  output: cntmat, bbmat
+ */
+double congbpadd=1.0;
+int congcnt(double ***cntmatm, int **bbm, int mf)
+{
+  int i,j,f,cm2;
+  double x,y,z;
+  double ***pvmatm,**pvmat,**vamat;
+
+  /* alloc */
+  cm2=cm+sw_cong;
+  pvmatm=NEW_A(mf,double**);
+  cntmat=new_mat(cm2,kk);
+  bbmat=new_mat(cm2,kk);
+  pvmat=new_mat(cm2,kk);
+  vamat=new_mat(cm2,kk);
+
+  /* calc bp with a correction */
+  for(f=0;f<mf;f++){
+    pvmatm[f]=new_mat(cm,kk);
+    for(j=0;j<kk;j++) for(i=0;i<cm;i++) {
+      x=cntmatm[f][i][j]; y=bbm[f][j];
+      z=y*0.5+((y-2.0*congbpadd)/y)*(x-y*0.5);
+      pvmatm[f][i][j]=z/y;
+    }
+  }
+  for(j=0;j<kk;j++) for(i=0;i<cm;i++) {
+    x=1.0; for(f=0;f<mf;f++) x*=pvmatm[f][i][j];
+    pvmat[i][j]=x;
+  }
+  if(sw_cong) {
+    for(j=0;j<kk;j++) {
+      x=0.0; for(i=0;i<cm;i++) x+=pvmat[i][j];
+      pvmat[cm][j]=x;
+    }
+  }
+
+  /* calc var */
+  for(j=0;j<kk;j++) {
+    z=y=0.0; for(f=0;f<mf;f++) y+=1.0/bbm[f][j];
+    for(i=0;i<cm;i++) {
+      x=0.0;
+      if(pvmat[i][j] > 0.0) {
+	for(f=0;f<mf;f++) x+=1.0/(bbm[f][j]*pvmatm[f][i][j]);
+      }
+      x*=fsquare(pvmat[i][j]);
+      z+=x;
+      vamat[i][j]=x-y*fsquare(pvmat[i][j]);
+    }
+    if(sw_cong) vamat[cm][j]=z-y*fsquare(pvmat[cm][j]);
+  }
+
+  /* calc Beff */
+  for(j=0;j<kk;j++) for(i=0;i<cm2;i++) {
+    x=pvmat[i][j];
+    bbmat[i][j]=x*(1.0-x)/vamat[i][j];
+  }
+
+  /* re-calc bp without the correction */
+  for(f=0;f<mf;f++){
+    for(j=0;j<kk;j++) for(i=0;i<cm;i++) 
+      pvmatm[f][i][j]=cntmatm[f][i][j] / bbm[f][j];
+  }
+  for(j=0;j<kk;j++) for(i=0;i<cm;i++) {
+    x=1.0; for(f=0;f<mf;f++) x*=pvmatm[f][i][j];
+    pvmat[i][j]=x;
+  }
+  if(sw_cong) {
+    for(j=0;j<kk;j++) {
+      x=0.0; for(i=0;i<cm;i++) x+=pvmat[i][j];
+      pvmat[cm][j]=x;
+    }
+  }
+
+  /* calc cntmat */
+  for(j=0;j<kk;j++) for(i=0;i<cm2;i++) {
+    cntmat[i][j]=bbmat[i][j]*pvmat[i][j];
+  }
+
+  /* clean */
+  free_mat(pvmat); free_mat(vamat);
+  for(f=0;f<mf;f++) free_mat(pvmatm[f]);
+  free(pvmatm);
+
+  return 0;
+}
+
+/*
+  (1) input rmt file
+  (2) read association file and sort the items
+  (3) call mctest and bootrep
+*/
+int do_rmtmultimode()
+{
+  int i,j,f,*ip,cm2,i0;
+  char *cbuf,**infiles;
+  FILE *fp;
+  double x;
+  /* save */
+  double *datvec0;
+  /* pval */
+  double **bapvecm;
+  /* for multiple rmt file */
+  int mf=0;
+  double **datvecm=NULL; /* mf x mm-vector of data */
+  int **bbm=NULL; /* mf x kk-vector of no.'s of replicates */
+  double **rrm=NULL; /* mf x kk-vector of relative sample sizes */
+  double ***cntmatm; /* mf x cm x kk matrix of counts */
+
+  /* read file names */
+  if(fname_rmt) fp=openfp(fname_rmt,fext_svt,"r",&cbuf); else fp=STDIN;
+  mf=0; infiles=fread_svec(fp,&mf);
+  if(fname_rmt) {fclose(fp); FREE(cbuf);}
+  printf("\n# MF:%d",mf);
+
+  /* pre-reading multi-rmt */
+  datvecm=NEW_A(mf,double*); 
+  rrm=NEW_A(mf,double*); bbm=NEW_A(mf,int*);
+  mm=kk=0;
+  for(f=0;f<mf;f++) {
+    fp=openfp(infiles[f],fext_rmt,"rb",&cbuf);
+    printf("\n# checking %s",cbuf);
+    datvecm[f]=fread_bvec(fp,&mm);
+    rrm[f]=fread_bvec(fp,&kk);
+    bbm[f]=fread_bivec(fp,&kk); 
+    printf("\n# R:"); for(i=0;i<kk;i++) printf("%6.2f ",rrm[f][i]);
+    printf("\n# B:"); for(i=0;i<kk;i++) printf("%6d ",bbm[f][i]);
+    for(i=0;i<kk;i++)
+      if( fabs(rrm[f][i]-rrm[0][i])>rrm[0][i]*0.1) error("rr mismatch");
+    i=fread_bi(fp); if(i != kk) error("wrong size in rmt");
+    fclose(fp); FREE(cbuf);
+  }
+  printf("\n# K:%d",kk);
+  printf("\n# M:%d",mm);
+  if(kk<1) return 0;
+  buf1=new_vec(mm); buf3=new_vec(mm); 
+
+  /* compose total lik */
+  datvec0=new_vec(mm);
+  for(i=0;i<mm;i++) {
+    x=0.0; for(f=0;f<mf;f++) x+= datvecm[f][i];
+    datvec0[i]=x;
+  }
+
+  /* reading association vector */
+  datvec=datvec0;
+  read_assoc();
+  buf2=new_vec(cm0);
+
+  /* check if disjoint */
+  ip=new_ivec(mm); for(i=0;i<mm;i++) ip[i]=0;
+  for(i=0;i<cm;i++) for(j=0;j<asslen[i];j++) ip[assvec[i][j]]++;
+  for(i=0;i<mm;i++) if(ip[i]>1) {
+    printf("\n# non-disjoint");
+    sw_cong=0; break;
+  }
+  free_ivec(ip);
+  cm2=cm+sw_cong;
+
+  /* copy obsvec and orderv */
+  if(sw_cong) {
+    obsvec=renew_vec(obsvec,cm2);
+    orderv=renew_ivec(orderv,cm2);
+    obsvec[cm]=0.0; orderv[cm]=cm;
+  }
+
+  /* reading parameters */
+  read_alpha();
+  if(sw_fastrep) read_scale();
+  
+  /* bayes */
+  if(sw_doba) {
+    bapvecm=NEW_A(mf,double*);
+    for(f=0;f<mf;f++) {
+      datvec=datvecm[f]; do_batest(); bapvecm[f]=bapvec;
+    }
+    bapvec=new_vec(cm2);
+    for(i=0;i<cm;i++) {
+      x=1.0;
+      for(f=0;f<mf;f++) x*=bapvecm[f][i];
+      bapvec[i]=x;
+    }
+    if(sw_cong) {
+      x=0.0; for(i=0;i<mf;i++) x+=bapvec[i];
+      bapvec[cm]=x;
+    }
+    free_lmat(bapvecm,mf);
+  }
+
+  /* reading multi-rmt files */
+  if(sw_doau||sw_dobp||sw_outcnt) {
+    cntmatm=NEW_A(mf,double**);
+    for(f=0;f<mf;f++) {
+      gencnt(infiles[f]);
+      cntmatm[f]=cntmat; bbm[f]=bb; rrm[f]=rr;
+    }
+    rrmat=new_mat(cm2,kk);
+    for(i=0;i<kk;i++) { /* averaging rr's */
+      x=0.0; for(f=0;f<mf;f++) x+=rrm[f][i];
+      x=x/mf; for(j=0;j<cm2;j++) rrmat[j][i]=x;
+    }
+    congcnt(cntmatm,bbm,mf);
+  }
+
+
+  /* change cm */
+  cm=cm2;
+
+  /* bp-test */
+  if(sw_dobp) {
+    npvec=new_vec(cm); nsvec=new_vec(cm);
+    for(i=0;i<cm;i++) {
+      i0=find_i0(rrmat[i],kk);
+      npvec[i]=cntmat[i][i0]/bbmat[i][i0];
+      nsvec[i]=sqrt(npvec[i]*(1.0-npvec[i])/bbmat[i][i0]);
+    }
+  }
+
+  /* au-test */
+  if(sw_doau) {
+    do_bootcnt();
+  }
+
+  if(sw_dobp||sw_doau||sw_doba)
+    write_pv(sw_dobp,sw_doba,0,sw_doau);
+  if(sw_outcnt) write_cnt2();
+
+  return 0;
+}
+
+
 
 int do_repmode()
 {
@@ -586,10 +950,7 @@ int do_repmode()
     i=fread_bi(fp);
     if(i!=kk) error("wrong number of matrices");
     statmats=NEW_A(kk,double**);
-    for(i=0;i<kk;i++) {
-      statmats[i]=sw_lmat?fread_blmat(fp,&cm,bb+i):
-	fread_bmat(fp,&cm,bb+i); putdot();
-    }
+    for(i=0;i<kk;i++) statmats[i]=fread_blmat(fp,&cm,bb+i);
     fclose(fp); FREE(cbuf);
   } else { /* ascii read from stdin */
     printf("\n# reading from stdin");
@@ -599,8 +960,7 @@ int do_repmode()
     if(i!=kk) error("wrong number of matrices");
     statmats=NEW_A(kk,double**);
     for(i=0;i<kk;i++) {
-      statmats[i]=sw_lmat?read_lmat(&cm,bb+i):
-	read_mat(&cm,bb+i); putdot();
+      statmats[i]=read_lmat(&cm,bb+i); putdot();
     }
   }
   printf("\n# K:%d",kk);
@@ -608,15 +968,7 @@ int do_repmode()
   printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
   printf("\n# CM:%d",cm);
 
-  /* reading alphas (for bootrep) */
-  if(fname_vt) {
-      fp=openfp(fname_vt,fext_vt,"r",&cbuf);
-      printf("\n# reading %s",cbuf);
-      nalpha=0; alphavec=fread_vec(fp,&nalpha);
-      fclose(fp); FREE(cbuf);
-  } else {
-    nalpha=nalpha0; alphavec=alphavec0;
-  }
+  read_alpha();
 
   if(sw_dobp) do_bptest();
   if(sw_doau) do_bootrep();
@@ -625,7 +977,7 @@ int do_repmode()
   if(sw_doau) {
     write_ci();
     if(sw_outrep) write_rep();
-    if(sw_outcnt) write_cnt();
+    if(sw_outcnt) write_cnt1();
   }
 
   return 0;
@@ -633,7 +985,7 @@ int do_repmode()
 
 int do_cntmode()
 {
-  int i,j,i0;
+  int j,i0;
   char *cbuf;
   FILE *fp;
 
@@ -645,19 +997,20 @@ int do_cntmode()
   }
   kk=cm=0;
   orderv=fread_ivec(fp,&cm); obsvec=fread_vec(fp,&cm);
-  rr=fread_vec(fp,&kk); bb=fread_ivec(fp,&kk);
+  rrmat=fread_mat(fp,&cm,&kk); bbmat=fread_mat(fp,&cm,&kk);
   cntmat=fread_mat(fp,&cm,&kk);
   if(fname_cnt) {fclose(fp); FREE(cbuf);}
 
-  printf("\n# K:%d",kk);
-  printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
-  printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
   printf("\n# CM:%d",cm);
+  printf("\n# K:%d",kk);
 
   if(sw_dobp) {
-    npvec=new_vec(cm); i0=find_i0();
-    for(j=0;j<cm;j++) npvec[j]=cntmat[j][i0]/bb[i0];
-    nsvec=getseval(npvec,cm,bb[i0],NULL);
+    npvec=new_vec(cm); nsvec=new_vec(cm);
+    for(j=0;j<cm;j++) {
+      i0=find_i0(rrmat[j],kk);
+      npvec[j]=cntmat[j][i0]/bbmat[j][i0];
+      nsvec[j]=sqrt(npvec[j]*(1.0-npvec[j])/bbmat[j][i0]);
+    }
   }
   if(sw_doau) do_bootcnt();
   write_pv(sw_dobp,0,0,sw_doau);
@@ -678,37 +1031,39 @@ int do_bptest()
   int nb;
 
   printf("\n# BP-TEST STARTS");
-  i0=find_i0();  nb=bb[i0];
+  i0=find_i0(rr,kk); nb=bb[i0];
 
   /* alloc memory */
   npvec=new_vec(cm); 
 
   /* calculate the naive p-value */
-  printf("\n# calculating the bootstrap p-values");
   for(j=0;j<cm;j++) npvec[j]=1.0-pvaldist(statmats[i0][j],nb,threshold);
-  nsvec=getseval(npvec,cm,nb,NULL);
+  nsvec=getseval(npvec,cm,(double)nb,NULL);
 
-  printf("\n# BP-TEST DONE");
+  printf(" - DONE");
   return 0;
 }
 
 /* calculate approximate bayes posterior probability */
+/*
+  input: datvec,mm,assvec,asslen,cm
+  output: bapvec
+  work: buf1
+ */
 int do_batest()
 {
   int i,j;
-  double x,y,*bapp;
+  double x,y;
 
-  bapvec=new_vec(cm); basvec=new_vec(cm);
-  bapp=new_vec(mm);
+  bapvec=new_vec(cm);
   x=-HUGENUM; for(i=0;i<mm;i++) if(datvec[i]>x) x=datvec[i];
-  y=0.0; for(i=0;i<mm;i++) {y+=bapp[i]=exp(bapcoef*(datvec[i]-x));}
-  for(i=0;i<mm;i++) bapp[i]=bapp[i]/y;
+  y=0.0; for(i=0;i<mm;i++) {y+=buf1[i]=exp(bapcoef*(datvec[i]-x));}
+  for(i=0;i<mm;i++) buf1[i]=buf1[i]/y;
 
   for(i=0;i<cm;i++) {
-    x=0.0; for(j=0;j<asslen[i];j++) x+=bapp[assvec[i][j]];
-    bapvec[i]=x; basvec[i]=0.0;
+    x=0.0; for(j=0;j<asslen[i];j++) x+=buf1[assvec[i][j]];
+    bapvec[i]=x; 
   }
-  free_vec(bapp);
   return 0;
 }
 
@@ -725,24 +1080,23 @@ int do_batest()
 int do_mctest()
 {
   double x,*xp,*yp;
-  int i,j,ib,i0;
-  int nb;
+  int i,j,ib;
+  int nb,i0;
   double **repmat; /* replicates of data */
   double **statmat; /* replicates of statistics */
   double *mnvec; /* mean of the replicates */
   double **wtmat; /* weight for ms-pvec */
 
   printf("\n# MC-TEST STARTS");
-  
-  i0=find_i0();  nb=bb[i0];
+  i0=find_i0(rr,kk); nb=bb[i0];
 
   /* alloc memory */
-  repmat=sw_lmat?new_lmat(mm,nb):new_mat(mm,nb);
-  statmat=sw_lmat?new_lmat(cm,nb):new_mat(cm,nb);
+  repmat=new_lmat(mm,nb);
+  statmat=new_lmat(cm,nb);
   khpvec=new_vec(cm); khwpvec=new_vec(cm); 
   mcpvec=new_vec(cm); mcwpvec=new_vec(cm);
   mnvec=new_vec(mm); 
-  wtmat=sw_lmat?new_lmat(mm,mm):new_mat(mm,mm);
+  wtmat=new_lmat(mm,mm);
 
   /* copy repmats[i0] to repmat */
   for(i=0;i<mm;i++) for(j=0;j<nb;j++) repmat[i][j]=repmats[i0][i][j];
@@ -762,7 +1116,7 @@ int do_mctest()
 			 assvec[i],cassvec[i],asslen[i],NULL);
     putdot();
   }
-  khsvec=getseval(khpvec,cm,nb,NULL);
+  khsvec=getseval(khpvec,cm,(double)nb,NULL);
   
   /* calculate mc-pvalue */
   printf("\n# calculating mc-pvalue");  
@@ -771,7 +1125,7 @@ int do_mctest()
 			 assvec[i],cassvec[i],asslen[i],NULL);
     putdot();
   }
-  mcsvec=getseval(mcpvec,cm,nb,NULL);
+  mcsvec=getseval(mcpvec,cm,(double)nb,NULL);
 
   /* calculate the weights */
   printf("\n# calculating the variances");
@@ -795,7 +1149,7 @@ int do_mctest()
 			  assvec[i],cassvec[i],asslen[i],wtmat);
     putdot();
   }
-  khwsvec=getseval(khwpvec,cm,nb,NULL);
+  khwsvec=getseval(khwpvec,cm,(double)nb,NULL);
 
   /* calculate mcw-pvalue */
   printf("\n# calculating weighted mc-pvalue");  
@@ -804,15 +1158,11 @@ int do_mctest()
 			  assvec[i],cassvec[i],asslen[i],wtmat);
     putdot();
   }
-  mcwsvec=getseval(mcwpvec,cm,nb,NULL);
+  mcwsvec=getseval(mcwpvec,cm,(double)nb,NULL);
 
   printf("\n# MC-TEST DONE");
   free_vec(mnvec); 
-  if(sw_lmat) {
-    free_lmat(repmat,mm); free_lmat(statmat,cm); free_lmat(wtmat,mm);
-  } else {
-    free_mat(repmat); free_mat(statmat); free_mat(wtmat);
-  }
+  free_lmat(repmat,mm); free_lmat(statmat,cm); free_lmat(wtmat,mm);
   return 0;
 }
 
@@ -862,7 +1212,7 @@ int do_bootrep()
       betamat[i][0]=betamat[i][1]=0.0;
     } else {
       pfvec[i]=pochisq(rssvec[i],(int)(dfvec[i]));
-      if(pfvec[i]<0.001)
+      if(pfvec[i]<0.01)
 	warning("theory does not fit well: pfit[%d]=%.4f",i+1,pfvec[i]);
       betamat[i][0]=beta[0]; betamat[i][1]=beta[1];
     }
@@ -917,10 +1267,10 @@ int do_bootcnt()
 
   for(i=0;i<cm;i++) {
     dprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
-    j=rcalpval(cntmat[i],rr,bb,kk,
+    j=rcalpval(cntmat[i],rrmat[i],bbmat[i],kk,
 	       pvvec+i,sevec+i,pv0vec+i,se0vec+1,
 	       rssvec+i,dfvec+i,&beta,&vmat,kappa);
-    thvec[i]=0.0; /* unused in cntmode */
+    thvec[i]=threshold; /* unused in cntmode */
     dprintf(1,"\n# ret=%d",j);
     if(vmat==NULL) {
       pfvec[i]=0.0;
@@ -928,7 +1278,7 @@ int do_bootcnt()
       betamat[i][0]=betamat[i][1]=0.0;
     } else {
       pfvec[i]=pochisq(rssvec[i],(int)(dfvec[i]));
-      if(pfvec[i]<0.001)
+      if(pfvec[i]<0.01)
 	warning("theory does not fit well: pfit[%d]=%.4f",i+1,pfvec[i]);
       betamat[i][0]=beta[0]; betamat[i][1]=beta[1];
     }
@@ -996,7 +1346,7 @@ int write_pv(int sw_bp, int sw_ba, int sw_mc, int sw_au)
       pvmat[i][j]=npvec[i]; semat[i][j]=nsvec[i]; j++;
     }
     if(sw_ba) {
-      pvmat[i][j]=bapvec[i]; semat[i][j]=basvec[i]; j++;
+      pvmat[i][j]=bapvec[i]; semat[i][j]=0.0; j++;
     }
     if(sw_mc) {
       pvmat[i][j]=khpvec[i]; semat[i][j]=khsvec[i]; j++;
@@ -1087,7 +1437,19 @@ int write_rep()
   return 0;
 }
 
-int write_cnt()
+int write_cnt1()
+{
+  int i,j;
+  rrmat=new_mat(cm,kk); bbmat=new_mat(cm,kk);
+  for(i=0;i<cm;i++) for(j=0;j<kk;j++) {
+    rrmat[i][j]=rr[j]; bbmat[i][j]=(double)bb[j];
+  }
+  write_cnt2();
+  free_mat(rrmat); free_mat(bbmat);
+  return 0;
+}
+
+int write_cnt2()
 {
   FILE *fp;
   char *cbuf;
@@ -1101,8 +1463,8 @@ int write_cnt()
   }
   fprintf(fp,"\n# ITEM:\n"); fwrite_ivec(fp,orderv,cm);
   fprintf(fp,"\n# STAT:\n"); fwrite_vec(fp,obsvec,cm);
-  fprintf(fp,"\n# R:\n"); fwrite_vec(fp,rr,kk);
-  fprintf(fp,"\n# B:\n"); fwrite_ivec(fp,bb,kk);
+  fprintf(fp,"\n# R:\n"); fwrite_mat(fp,rrmat,cm,kk);
+  fprintf(fp,"\n# B:\n"); fwrite_mat(fp,bbmat,cm,kk);
   fprintf(fp,"\n# CNT:\n"); fwrite_mat(fp,cntmat,cm,kk);
 
   if(fname_cnt) {fclose(fp); FREE(cbuf);}
@@ -1111,17 +1473,14 @@ int write_cnt()
 
 
 /* find i0 s.t. rr[i0] is close to 1.0 */
-int find_i0()
+int find_i0(double *rr, int kk)
 {
   double *buf;
   int i,i0;
-  static int printyes=0;
   buf=new_vec(kk);
   for(i=0;i<kk;i++) buf[i]=fabs(rr[i]-1.0);
   i0=argmin_vec(buf,kk);
   free_vec(buf);
-  if(!printyes) printf("\n# I0:%d R0:%g B0:%d",i0+1,rr[i0],bb[i0]);
-  printyes++;
 
   return i0;
 }
@@ -1487,7 +1846,7 @@ double calckhpval(double *datvec, double **repmat, int mm, int nb,
   return x;
 }
 
-double *getseval(double *pval, int m, int nb, double *seval)
+double *getseval(double *pval, int m, double nb, double *seval)
 {
   int i;
   if(seval==NULL) seval=new_vec(m);
@@ -1500,9 +1859,7 @@ double *getseval(double *pval, int m, int nb, double *seval)
  *  MS-BOOT ROUTINES
  */
 
-double zvaleps=1.0e-6;
-double zvalbig=6.0;
-int wlscalcpval(double *cnts, double *rr, int *bb, int kk,
+int wlscalcpval(double *cnts, double *rr, double *bb, int kk,
 		double *pv, double *se,    /* au */
 		double *pv0, double *se0,  /* bp */
 		double *rss, double *df, 
@@ -1514,38 +1871,34 @@ int wlscalcpval(double *cnts, double *rr, int *bb, int kk,
   static double beta[2];
   static int kk0=0;
   static double *npv=NULL,*zval=NULL,*wt=NULL; /* kk-vector */
-  static int *unused=NULL;
   static double **X=NULL; /* 2 x kk matrix */
-  int m; /* # of used items */
+  int m,m2; /* # of used items */
 
   if(kk>kk0){
     X=renew_mat(X,2,kk);
     npv=renew_vec(npv,kk);
     zval=renew_vec(zval,kk);
     wt=renew_vec(wt,kk);    
-    unused=renew_ivec(unused,kk);
     kk0=kk;
   }
 
-  m=0;
+  m=m2=0;
   for(i=0;i<kk;i++) {
     s=sqrt(1.0/rr[i]);
     X[0][i]=1.0/s; X[1][i]=s;
     npv[i]=cnts[i]/bb[i];
-    if((rr[i]<rmin) || (rr[i]>rmax)) {
-      unused[i]=1; zval[i]=0.0; wt[i]=0.0;}
-    else if(npv[i]<zvaleps) {
-      unused[i]=1; zval[i]=zvalbig; wt[i]=0.0;}
-    else if(npv[i]>1.0-zvaleps) {
-      unused[i]=1; zval[i]=-zvalbig; wt[i]=0.0;}
-    else {
-      unused[i]=0; zval[i]=critz(1.0-npv[i]); 
+    if((rr[i]<rmin)||(rr[i]>rmax)){
+      zval[i]=0.0; wt[i]=0.0;
+    } else if((npv[i]>=1.0)||(npv[i]<=0.0)){
+      zval[i]=0.0; wt[i]=0.0; m2++;
+    } else {
+      zval[i]=-qnorm(npv[i]); 
       x=dnorm(zval[i]);
       wt[i]=bb[i]*x*x/((1.0-npv[i])*npv[i]);
       m++;
     }
   }
-  *df=(double)(m-2);
+  *df=(double)(m+m2-2);
 
   if(m<2) {
     for(x=0.0,i=0;i<kk;i++) x+=zval[i];
@@ -1556,11 +1909,11 @@ int wlscalcpval(double *cnts, double *rr, int *bb, int kk,
     i=1; /* degenerate */
   } else {
     lsfit(X,zval,wt,2,kk,beta,rss,&vmat);
-    *pv=1.0-poz(beta[0]-kappa*beta[1]);
+    *pv=pnorm( -(beta[0]-kappa*beta[1]) );
     x=dnorm(beta[0]-kappa*beta[1]);
     *se=sqrt(x*x*(vmat[0][0]+kappa*kappa*vmat[1][1]
 		  -kappa*vmat[0][1]-kappa*vmat[1][0]));
-    *pv0=1.0-poz(beta[0]+beta[1]);
+    *pv0=pnorm( -(beta[0]+beta[1]) );
     x=dnorm(beta[0]+beta[1]);
     *se0=sqrt(x*x*(vmat[0][0]+vmat[1][1]+vmat[0][1]+vmat[1][0]));
     i=0; /* non-degenerate */
@@ -1572,21 +1925,20 @@ int wlscalcpval(double *cnts, double *rr, int *bb, int kk,
 
 
 /* MS-BOOT by the MLE */
-double entropy2(double p)
+double log3(double x)
 {
-  if(p<=0.0 || p>=1.0) return 0.0;
-  return p*log(p)+(1.0-p)*log(1.0-p);
+  double y,z1,z2,z3,z4,z5;
+  if(fabs(x)>1.0e-3) {
+    y=-log(1.0-x);
+  } else {
+    z1=x; z2=z1*x; z3=z2*x; z4=z3*x; z5=z4*x;
+    y=((((z5/5.0)+z4/4.0)+z3/3.0)+z2/2.0)+z1;
+  }
+  return y;
 }
-double log2(double x, double y)
-{
-  if(x==0.0 && y<=0.0) return 0.0;
-  if(y<=0.0) {warning("zero in log"); return -x*1.0e30;}
-  return x*log(y);
-}
-
 int mleloopmax=20;
 double mleeps=0.0001;
-int mlecoef(double *cnts, double *rr, int *bb, int kk,
+int mlecoef(double *cnts, double *rr, double *bb, int kk,
 	    double *coef0, /* set initinal value (size=2) */
 	    double **vmat, /* variance (2x2) */
 	    double *lrt, double *df, /* LRT statistic */
@@ -1622,7 +1974,7 @@ int mlecoef(double *cnts, double *rr, int *bb, int kk,
     d1f=d2f=d11f=d12f=d22f=0.0;
     for(i=0;i<m;i++) {
       z[i]=coef[0]*s[i]+coef[1]/s[i];
-      p[i]=1.0-pnorm(z[i]);
+      p[i]=pnorm(-z[i]);
       d[i]=dnorm(z[i]);
       if(p[i]>0.0 && p[i]<1.0) {
 	g[i]=d[i]*( d[i]*(-c[i]+2.0*c[i]*p[i]-b[i]*p[i]*p[i])/
@@ -1658,9 +2010,12 @@ int mlecoef(double *cnts, double *rr, int *bb, int kk,
   /* calc log-likelihood */
   *lrt=0.0; *df=0.0;
   for(i=0;i<m;i++) {
-    a=log2(c[i],p[i]) + log2(b[i]-c[i],1.0-p[i]);
-    *lrt += b[i]*entropy2(c[i]/b[i]) - a;
-    if(p[i]>0.0 && p[i]<1.0) *df+=1.0;
+    if(p[i]>0.0 && p[i]<1.0) {
+      *df+=1.0;
+      if(c[i]>0.0) a=c[i]*log(c[i]/b[i]/p[i]); else a=0.0;
+      if(c[i]<b[i]) a+=(b[i]-c[i])*(log3(p[i])-log3(c[i]/b[i]));
+      *lrt += a;
+    }
   }
   *lrt *= 2.0; *df -= 2.0;
 
@@ -1671,7 +2026,7 @@ int mlecoef(double *cnts, double *rr, int *bb, int kk,
   return i;
 }
 
-int mlecalcpval(double *cnts, double *rr, int *bb, int kk,
+int mlecalcpval(double *cnts, double *rr, double *bb, int kk,
 		double *pv, double *se,    /* au */
 		double *pv0, double *se0,  /* bp */
 		double *rss, double *df, 
@@ -1692,11 +2047,11 @@ int mlecalcpval(double *cnts, double *rr, int *bb, int kk,
   i=mlecoef(cnts,rr,bb,kk,coef,vmat,rss,df,rmin,rmax);
   if(i) {dprintf(1,"\n# error in mle"); return i;} /* error */
 
-  *pv=1.0-pnorm(coef[0]-kappa*coef[1]);
+  *pv=pnorm(-(coef[0]-kappa*coef[1]) );
   x=dnorm(coef[0]-kappa*coef[1]);
   *se=sqrt(x*x*(vmat[0][0]+kappa*kappa*vmat[1][1]
 		-kappa*vmat[0][1]-kappa*vmat[1][0]));
-  *pv0=1.0-pnorm(coef[0]+coef[1]);
+  *pv0=pnorm(-(coef[0]+coef[1]));
   x=dnorm(coef[0]+coef[1]);
   *se0=sqrt(x*x*(vmat[0][0]+vmat[1][1]+vmat[0][1]+vmat[1][0]));
 
@@ -1706,7 +2061,7 @@ int mlecalcpval(double *cnts, double *rr, int *bb, int kk,
 }
 
 /* switch the wls and the mle for calculating au test */
-int calcpval(double *cnts, double *rr, int *bb, int kk,
+int calcpval(double *cnts, double *rr, double *bb, int kk,
 	     double *pv, double *se,    /* au */
 	     double *pv0, double *se0,  /* bp */
 	     double *rss, double *df, 
@@ -1723,7 +2078,7 @@ int calcpval(double *cnts, double *rr, int *bb, int kk,
 double pfmin=0.001; /* minimum p-value of diagnostics */
 double rrmin=0.0; /* minimum rr */
 double rrmax=100.0; /* maximum rr */
-int rcalpval(double *cnts, double *rr, int *bb, int kk,
+int rcalpval(double *cnts, double *rr, double *bb, int kk,
 	     double *pv, double *se, 
 	     double *pv0, double *se0, 
 	     double *rss, double *df, 
@@ -1744,7 +2099,7 @@ int rcalpval(double *cnts, double *rr, int *bb, int kk,
   /* find the minimum rr[i] which is not less than rmin */
   for(i=0;i<kk;i++) if(rr0[i]>=rrmin) break;
   i1=i;
-  /* find the maximum rr[i] which is not less than 1.0 */
+  /* find the minimum rr[i] which is not less than 1.0 */
   for(;i<kk;i++) if(rr0[i]>=1.0) break;
   i2=i;
   /* call calcpval until the theory fits well */
@@ -1794,9 +2149,12 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
   for(j=0;j<vcloopmax;j++) {
     x=xn;
     /* get cnts */
-    for(i=0;i<kk;i++) cntvec[i]=cntdist(statps[i],bb[i],x,3);
+    for(i=0;i<kk;i++) {
+      cntvec[i]=cntdist(statps[i],bb[i],x,3);
+      buf[i]=(double)bb[i];
+    }
     /* get pvalue */
-    i=calcpval(cntvec,rr,bb,kk,&pv,&se,&pv0,&se0,
+    i=calcpval(cntvec,rr,buf,kk,&pv,&se,&pv0,&se0,
 	       &rss,&df,&beta,&vmat,rrmin,rrmax,kappa);
     idf=(int)df;
     if(vmat) {
@@ -1863,10 +2221,13 @@ int invtpval(double **statps, double *rr, int *bb, int kk,
     x0=x; x=0.5*(x1+x2);
     dprintf(2,"\n## %d %g ",j,x);
     /* get cnts */
-    for(i=0;i<kk;i++) cntvec[i]=cntdist(statps[i],bb[i],x,3);
+    for(i=0;i<kk;i++) {
+      cntvec[i]=cntdist(statps[i],bb[i],x,3);
+      buf[i]=(double)bb[i];
+    }
     /* get pvalue */
     se0=se; pv0=pv;
-    i=calcpval(cntvec,rr,bb,kk,&pv,&se,&pv00,&se00,
+    i=calcpval(cntvec,rr,buf,kk,&pv,&se,&pv00,&se00,
 	       &rss,&df,&beta,NULL,rrmin,rrmax,kappa);
     e=pv-alpha;
     dprintf(2,"%g %g %g %g %g %g %g %g ",
