@@ -1,7 +1,7 @@
 /*
   treeass.c : find the associations of the trees
 
-  Time-stamp: <2001-05-13 14:11:31 shimo>
+  Time-stamp: <2001-05-17 07:54:03 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -14,10 +14,11 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "misc.h"
 #include "tree.h"
 
-static const char rcsid[] = "$Id: treeass.c,v 1.1 2001/05/05 09:06:48 shimo Exp shimo $";
+static const char rcsid[] = "$Id: treeass.c,v 1.2 2001/05/16 22:16:56 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -44,6 +45,25 @@ ivec **splittree; /* the table from split to tree */
 
 int sw_nleaf=0;
 int sw_prtlabel=0;
+
+int ioutgroup=0;
+
+void fprintsplit(FILE *fp, Snode *sp)
+{
+  int j,o;
+  char m,p;
+  o=0;
+  if(ioutgroup>=1 && ioutgroup<=sp->len) o=sp->set[ioutgroup];
+  m=o?'+':'-'; p=o?'-':'+'; 
+
+  for(j=1;j<sp->len;j++) 
+    if(sp->set[j]==0) putc(m,fp);
+    else if(sp->set[j]==1) putc(p,fp);
+    else fprintf(fp,"%d",sp->set[j]);
+  for(;j<=nleaf;j++) putc(m,fp);
+}
+
+
 
 int main(int argc, char** argv)
 {
@@ -76,6 +96,11 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"-d")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%d",&debugmode) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--outgroup")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&ioutgroup) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"-v")) {
@@ -223,11 +248,7 @@ int main(int argc, char** argv)
   for(i=0;i<splitbase->len;i++) {
     sp=splitvec[splitbase->ve[i]];
     fprintf(fpl,"\n%3d ",i+1);
-    for(j=1;j<sp->len;j++) 
-      if(sp->set[j]==0) fprintf(fpl,"-");
-      else if(sp->set[j]==1) fprintf(fpl,"+");
-      else fprintf(fpl,"%d",sp->set[j]);
-    for(;j<=nleaf;j++) fprintf(fpl,"-");
+    fprintsplit(fpl,sp);
   }
   
   /* print the common splits */
@@ -238,11 +259,7 @@ int main(int argc, char** argv)
   for(i=1;i<splitcom->len;i++) { /* discard the first split, i.e. root */
     sp=splitvec[splitcom->ve[i]];
     fprintf(fpl,"\n%3d ",i+splitbase->len);
-    for(j=1;j<sp->len;j++) 
-      if(sp->set[j]==0) fprintf(fpl,"-");
-      else if(sp->set[j]==1) fprintf(fpl,"+");
-      else fprintf(fpl,"%d",sp->set[j]);
-    for(;j<=nleaf;j++) fprintf(fpl,"-");
+    fprintsplit(fpl,sp);
   }
 
   /* print tree->split association */
