@@ -1,7 +1,7 @@
 /*
   treeass.c : find the associations of the trees
 
-  Time-stamp: <2001-04-25 15:59:23 shimo>
+  Time-stamp: <2001-05-13 14:11:31 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,15 +17,17 @@
 #include "misc.h"
 #include "tree.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: treeass.c,v 1.1 2001/05/05 09:06:48 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
 
 char *fname_tpl = NULL;
 char *fname_ass = NULL;
+char *fname_vt = NULL;
 char *fext_tpl = ".tpl";
 char *fext_ass = ".ass";
+char *fext_vt = ".vt";
 
 int ntree,nleaf,nsplit; /* numbers of trees, leaves, and splits */
 Tnode **treevec; /* list of trees */
@@ -41,6 +43,7 @@ ivec *splitbase; /* base splits */
 ivec **splittree; /* the table from split to tree */
 
 int sw_nleaf=0;
+int sw_prtlabel=0;
 
 int main(int argc, char** argv)
 {
@@ -50,7 +53,10 @@ int main(int argc, char** argv)
   Snode *sp;
   Wnode *wp;
   ivec *iv;
-  int *ibuf;
+  int *ibuf,*orderv=NULL;
+  Tnode **treevec0;
+  int ntree0;
+  char *cbuf;
 
   printf("# %s",rcsid);
 
@@ -65,10 +71,16 @@ int main(int argc, char** argv)
       j++;
     } else if(streq(argv[i],"-l")) {
       sw_nleaf=1;
+    } else if(streq(argv[i],"-p")) {
+      sw_prtlabel=1;
     } else if(streq(argv[i],"-d")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%d",&debugmode) != 1)
 	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-v")) {
+      if(i+1>=argc) byebye();
+      fname_vt=argv[i+1];
       i+=1;
     } else byebye();
   }
@@ -78,26 +90,43 @@ int main(int argc, char** argv)
 
   /* read tree topologies */
   if(fname_tpl){
-    fname_tpl=mstrcat(fname_tpl,fext_tpl);
-    if((fp=fopen(fname_tpl,"r"))==NULL) error("cant open %s",fname_tpl);
-    fprintf(fpl,"\n# reading %s",fname_tpl);
+    fp=openfp(fname_tpl,fext_tpl,"r",&cbuf);
+    fprintf(fpl,"\n# reading %s",cbuf);
   } else {
     fprintf(fpl,"\n# reading from stdin"); fp=STDIN;
   }
   /* tpl file starts with the number of trees */
   if(sw_nleaf) nleaf=fread_i(fp);
-  ntree=fread_i(fp);
+  ntree0=fread_i(fp);
   /* init vectors and lists */
-  treevec=NEW_A(ntree,Tnode*);
-  treesplit=NEW_A(ntree,ivec*);
-  wlist.next=NULL; slist.next=NULL;
+  treevec0=NEW_A(ntree0,Tnode*); wlist.next=NULL; 
   /* read trees */
+  for(i=0;i<ntree0;i++) {
+    treevec0[i]=fread_rtree(fp,&wlist); /* read */
+  }
+  FREE(cbuf); fclose(fp);
+  fprintf(fpl,"\n# %d trees read",ntree0);
+
+  /* selection */
+  if(fname_vt) {
+    fp=openfp(fname_vt,fext_vt,"r",&cbuf);
+    printf("\n# reading %s",cbuf);
+    ntree=0; orderv=fread_ivec(fp,&ntree);
+    FREE(cbuf); fclose(fp);
+    treevec=NEW_A(ntree,Tnode*);
+    for(i=0;i<ntree;i++)
+      treevec[i]=treevec0[orderv[i]];
+    printf("\n# M: %d -> %d",ntree0,ntree);
+  } else {
+    treevec=treevec0; ntree=ntree0;
+  }
+
+  /* split decomposition */
+  treesplit=NEW_A(ntree,ivec*); slist.next=NULL;
   for(i=0;i<ntree;i++) {
-    treevec[i]=fread_rtree(fp,&wlist); /* read */
     sp=treetosplits(treevec[i]); /* get the split decomposition */
     treesplit[i]=splitstoids(sp,&slist); /* convert it to ivec */
   }
-  fclose(fp);
 
   /* count leaves */
   for(i=0,wp=wlist.next; wp!=NULL; i++,wp=wp->next);
@@ -114,9 +143,9 @@ int main(int argc, char** argv)
   splitvec=NEW_A(nsplit,Snode*); /* this is easier to access than slist */
   for(i=0,sp=slist.next; i<nsplit; i++,sp=sp->next)
     splitvec[i]=sp;
-  fprintf(fpl,"\n# splits total: %d",nsplit);
+  fprintf(fpl,"\n# edges total: %d",nsplit);
   for(i=j=0;i<nsplit;i++) if(splitrev->ve[i]!=i) j++;
-  fprintf(fpl,"\n# equivalent reverse splits: %d",j);
+  fprintf(fpl,"\n# reverse edges: %d",j);
 
   /* split decompositions are converted to unrooted version */
   for(i=0;i<ntree;i++) {  
@@ -167,66 +196,71 @@ int main(int argc, char** argv)
 
   /****************************************/
 
-  fprintf(fpl,"\n# %d base-splits, %d common-splits, %d root-split",
+  fprintf(fpl,"\n# %d base-edges, %d common-edges, %d root-edge",
 	  splitbase->len,splitcom->len-1,1);
 
-  /* print split->tree association */
-  fprintf(fpl,"\n\n# split->tree\n%d",splitbase->len);
-  for(i=0;i<splitbase->len;i++) {
-    fprintf(fpl,"\n%3d %3d ",i+1,splittree[i]->len);
-    for(j=0;j<splittree[i]->len;j++) fprintf(fpl," %d",splittree[i]->ve[j]+1);
-  }
-
-  /* print tree->split association */
-  fprintf(fpl,"\n\n# tree->split\n%d",ntree);
+  /* print trees */
+  fprintf(fpl,"\n\n# trees: %d",ntree);
+  fprintf(fpl,"\n%d\n",ntree);
   for(i=0;i<ntree;i++) {
-    fprintf(fpl,"\n%3d %3d  ",i+1,treesplit[i]->len);
-    for(j=0;j<treesplit[i]->len;j++)
-      fprintf(fpl,"%d ",treesplit[i]->ve[j]+1);
+    fwrite_rtree(fpl,treevec[i],sw_prtlabel?&wlist:NULL);
+    fprintf(fpl," %d",i+1); 
+    if(orderv) fprintf(fpl," <- %d",orderv[i]+1); 
+    fprintf(fpl,"\n");
   }
 
+  /* print leaves */
+  fprintf(fpl,"\n# leaves: %d",nleaf);
+  fprintf(fpl,"\n%d\n",nleaf);
+  for(i=0,wp=wlist.next; i<nleaf; i++,wp=wp->next)
+    fprintf(fpl,"%3d %s\n",i+1,wp->label);
 
   /* print the splits */
-  fprintf(fpl,"\n\n# base splits\n%d %d",splitbase->len,nleaf);
+  fprintf(fpl,"\n# base edges: %d\n%d %d",
+	  splitbase->len,splitbase->len,nleaf);
   fprintf(fpl,"\n    ");
   for(i=1;i<=nleaf;i++) fprintf(fpl,"%d",i%10);
   for(i=0;i<splitbase->len;i++) {
     sp=splitvec[splitbase->ve[i]];
     fprintf(fpl,"\n%3d ",i+1);
     for(j=1;j<sp->len;j++) 
-      if(sp->set[j]!=0) fprintf(fpl,"%d",sp->set[j]);
-      else fprintf(fpl,"-");
+      if(sp->set[j]==0) fprintf(fpl,"-");
+      else if(sp->set[j]==1) fprintf(fpl,"+");
+      else fprintf(fpl,"%d",sp->set[j]);
     for(;j<=nleaf;j++) fprintf(fpl,"-");
   }
   
-
   /* print the common splits */
-  fprintf(fpl,"\n\n# common splits\n%d %d",splitcom->len-1,nleaf);
+  fprintf(fpl,"\n\n# common edges: %d\n%d %d",
+	  splitcom->len-1,splitcom->len-1,nleaf);
   fprintf(fpl,"\n    ");
   for(i=1;i<=nleaf;i++) fprintf(fpl,"%d",i%10);
   for(i=1;i<splitcom->len;i++) { /* discard the first split, i.e. root */
     sp=splitvec[splitcom->ve[i]];
-    fprintf(fpl,"\n%3d ",i);
+    fprintf(fpl,"\n%3d ",i+splitbase->len);
     for(j=1;j<sp->len;j++) 
-      if(sp->set[j]!=0) fprintf(fpl,"%d",sp->set[j]);
-      else fprintf(fpl,"-");
+      if(sp->set[j]==0) fprintf(fpl,"-");
+      else if(sp->set[j]==1) fprintf(fpl,"+");
+      else fprintf(fpl,"%d",sp->set[j]);
     for(;j<=nleaf;j++) fprintf(fpl,"-");
   }
 
-  /* print leaves */
-  fprintf(fpl,"\n\n# leaves: %d",nleaf);
-  fprintf(fpl,"\n%d\n",nleaf);
-  for(i=0,wp=wlist.next; i<nleaf; i++,wp=wp->next)
-    fprintf(fpl,"%3d %s\n",i+1,wp->label);
-
-  /* print trees */
-  fprintf(fpl,"\n\n# trees: %d",ntree);
-  fprintf(fpl,"\n%d\n",ntree);
+  /* print tree->split association */
+  fprintf(fpl,"\n\n# tree->edge\n%d",ntree);
   for(i=0;i<ntree;i++) {
-    fwrite_rtree(fpl,treevec[i],NULL); /* write to log */
-    fprintf(fpl," %d\n",i+1); 
+    fprintf(fpl,"\n%3d %3d  ",i+1,treesplit[i]->len);
+    for(j=0;j<treesplit[i]->len;j++)
+      fprintf(fpl,"%d ",treesplit[i]->ve[j]+1);
   }
 
+  /* print split->tree association */
+  fprintf(fpl,"\n\n# edge->tree\n%d",splitbase->len);
+  for(i=0;i<splitbase->len;i++) {
+    fprintf(fpl,"\n%3d %3d ",i+1,splittree[i]->len);
+    for(j=0;j<splittree[i]->len;j++) fprintf(fpl," %d",splittree[i]->ve[j]+1);
+  }
+
+  fprintf(fpl,"\n");
 
   /* OUTPUT ASSOCIATION */
   if(fname_ass) {
@@ -238,12 +272,12 @@ int main(int argc, char** argv)
     fprintf(fpl,"\n# writing to stdout\n");
   }
   /* print split->tree association */
-  fprintf(fpr,"\n# SPLIT->TREE\n%d\n",splitbase->len);
+  fprintf(fpr,"\n# EDGE->TREE\n%d\n",splitbase->len);
   for(i=0;i<splitbase->len;i++) {
     fwrite_ivec(fpr,splittree[i]->ve,splittree[i]->len);
   }
   /* print tree->split association */
-  fprintf(fpr,"\n# TREE->SPLIT\n%d\n",ntree);
+  fprintf(fpr,"\n# TREE->EDGE\n%d\n",ntree);
   for(i=0;i<ntree;i++) {
     fwrite_ivec(fpr,treesplit[i]->ve,treesplit[i]->len);
   }
