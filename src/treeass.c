@@ -1,7 +1,7 @@
 /*
   treeass.c : find the associations of the trees
 
-  Time-stamp: <2001-06-23 11:36:39 shimo>
+  Time-stamp: <2002-04-17 00:46:46 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,17 +18,14 @@
 #include "misc.h"
 #include "tree.h"
 
-static const char rcsid[] = "$Id: treeass.c,v 1.3 2001/05/29 06:32:22 shimo Exp shimo $";
+static const char rcsid[] = "$Id: treeass.c,v 1.4 2001/08/10 06:04:16 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
 
-char *fname_tpl = NULL;
-char *fname_ass = NULL;
-char *fname_vt = NULL;
-char *fext_tpl = ".tpl";
-char *fext_ass = ".ass";
-char *fext_vt = ".vt";
+char *fname_tpl = NULL; char *fext_tpl = ".tpl";
+char *fname_ass = NULL; char *fext_ass = ".ass";
+char *fname_vt = NULL; char *fext_vt = ".vt";
 
 int ntree,nleaf,nsplit; /* numbers of trees, leaves, and splits */
 Tnode **treevec; /* list of trees */
@@ -45,6 +42,9 @@ ivec **splittree; /* the table from split to tree */
 
 int sw_nleaf=0;
 int sw_prtlabel=0;
+int sw_hist=0;
+
+int *treehist,*treeorder,ntree2;
 
 int ioutgroup=0;
 
@@ -110,6 +110,8 @@ int main(int argc, char** argv)
       if(i+1>=argc) byebye();
       fname_vt=argv[i+1];
       i+=1;
+    } else if(streq(argv[i],"-c")) {
+      sw_hist=1;
     } else byebye();
   }
 
@@ -132,7 +134,7 @@ int main(int argc, char** argv)
   for(i=0;i<ntree0;i++) {
     treevec0[i]=fread_rtree(fp,&wlist); /* read */
   }
-  FREE(cbuf); fclose(fp);
+  if(fname_tpl!=0) {FREE(cbuf); fclose(fp);}
   fprintf(fpl,"\n# %d trees read",ntree0);
 
   /* selection */
@@ -222,19 +224,53 @@ int main(int argc, char** argv)
   FREE(ibuf);
 
 
+  /* hist */
+  if(sw_hist) {
+    treehist=new_ivec(ntree); treeorder=new_ivec(ntree);
+    for(i=0;i<ntree;i++) {
+      treehist[i]=0;
+      for(j=0;j<i;j++) {
+	if(treesplit[j]->len != treesplit[i]->len) continue;
+	for(k=0;k<treesplit[i]->len;k++)
+	  if(treesplit[j]->ve[k] != treesplit[i]->ve[k]) break;
+	if(k!=treesplit[i]->len) continue;
+	/* found the same tree */
+	break;
+      }
+      treehist[j]--; /* for sorting */
+    }
+    isort(treehist,treeorder,ntree);
+    ntree2=0;
+    for(i=0;i<ntree;i++)
+      if((treehist[i]=-treehist[i])) ntree2++;
+  }
+
   /****************************************/
 
   fprintf(fpl,"\n# %d base-edges, %d common-edges, %d root-edge",
 	  splitbase->len,splitcom->len-1,1);
 
   /* print trees */
-  fprintf(fpl,"\n\n# trees: %d",ntree);
-  fprintf(fpl,"\n%d\n",ntree);
-  for(i=0;i<ntree;i++) {
-    fwrite_rtree(fpl,treevec[i],sw_prtlabel?&wlist:NULL);
-    fprintf(fpl," %d",i+1); 
-    if(orderv) fprintf(fpl," <- %d",orderv[i]+1); 
-    fprintf(fpl,"\n");
+  if(sw_hist) {
+    sw_prtlabel=!sw_prtlabel; /* negate sw */
+    fprintf(fpl,"\n\n# trees: %d out of %d",ntree2,ntree);
+    fprintf(fpl,"\n%d\n",ntree2);
+    for(i=0;i<ntree2;i++) {
+      fwrite_rtree(fpl,treevec[treeorder[i]],sw_prtlabel?&wlist:NULL);
+      fprintf(fpl," %d",treehist[i]); 
+      fprintf(fpl," <- %d",treeorder[i]+1); 
+      if(orderv) fprintf(fpl," <- %d",orderv[treeorder[i]]+1); 
+      fprintf(fpl,"\n");
+    }
+  } else {
+    fprintf(fpl,"\n\n# trees: %d",ntree);
+    fprintf(fpl,"\n%d\n",ntree);
+    for(i=0;i<ntree;i++) {
+      fwrite_rtree(fpl,treevec[i],sw_prtlabel?&wlist:NULL);
+      fprintf(fpl," %d",i+1); 
+      if(orderv) fprintf(fpl," <- %d",orderv[i]+1); 
+      fprintf(fpl,"\n");
+    }
   }
 
   /* print leaves */
