@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-05-16 08:30:11 shimo>
+  Time-stamp: <2001-05-29 14:21:08 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -16,11 +16,13 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "rand.h"
 #include "misc.h"
+#include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.5 2001/05/05 14:45:02 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.6 2001/05/16 22:14:24 shimo Exp shimo $";
 
 
 /*
@@ -36,7 +38,7 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 		   int bb  /* number of bootstrap replicates */
 		   ) {
   int i,j,k;
-  double x,*wv,*rv;
+  double *wv,*rv,*xp;
   double r;
 
   wv=new_vec(n); rv=new_vec(bn);
@@ -59,8 +61,9 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 
     /* then, summing up datmat with the weights */
     for(k=0;k<m;k++) {
-      x=0.0;
-      for(j=0;j<n;j++) x+=wv[j]*datmat[k][j];
+      register int j; register double x;
+      xp=datmat[k]; x=0.0;
+      for(j=0;j<n;j++) x+=wv[j]*xp[j]; /* <- time consuming */
       repmat[k][i]=x/r; /* rescaling with 1/r */
     }
   }
@@ -82,6 +85,12 @@ char *fext_mt = ".mt";
 char *fext_rmt = ".rmt";
 char *fext_vt = ".vt";
 
+enum seqfile {SEQ_MT, SEQ_MOLPHY, SEQ_PAML, SEQ_PAUP};
+int seqmode=SEQ_MT;
+char *fext_molphy=".lls";
+char *fext_paml=".lfh";
+char *fext_paup=".txt";
+
 /* msboot parameter */
 int kk,*bb,*bn;
 double *rr;
@@ -100,7 +109,7 @@ int main(int argc, char** argv)
   int i,j;
   double x,t0,t1;
   FILE *fp;
-  char *cbuf;
+  char *cbuf,*fext;
 
   printf("# %s",rcsid);
 
@@ -108,7 +117,7 @@ int main(int argc, char** argv)
   for(i=j=1;i<argc;i++) {
     if(argv[i][0] != '-') {
       switch(j) {
-      case 1: fname_mt=fname_rmt=argv[i]; break;
+      case 1: fname_mt=argv[i]; break;
       case 2: fname_rmt=argv[i]; break;
       default: byebye();
       }
@@ -126,6 +135,12 @@ int main(int argc, char** argv)
       if(i+1>=argc) byebye();
       fname_vt=argv[i+1];
       i+=1;
+    } else if(streq(argv[i],"--molphy")) {
+      seqmode=SEQ_MOLPHY;
+    } else if(streq(argv[i],"--paml")) {
+      seqmode=SEQ_PAML;
+    } else if(streq(argv[i],"--paup")) {
+      seqmode=SEQ_PAUP;
     } else byebye();
   }
 
@@ -148,17 +163,36 @@ int main(int argc, char** argv)
   printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
   printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
 
-  /* reading datmat */
-  mm=nn=0;
-  if(fname_mt!=NULL) {
-    fp=openfp(fname_mt,fext_mt,"r",&cbuf);
-    printf("\n# reading %s",cbuf);
-    datmat=fread_mat(fp,&mm,&nn);
-    fclose(fp); FREE(cbuf);
-  } else {
-    printf("\n# reading from stdin");
-    datmat=fread_mat(STDIN,&mm,&nn);
+  /* open file */
+  switch(seqmode) {
+  case SEQ_MOLPHY: fext=fext_molphy; break;
+  case SEQ_PAML: fext=fext_paml; break;
+  case SEQ_PAUP: fext=fext_paup; break;
+  case SEQ_MT: 
+  default: fext=fext_mt; break;
   }
+  if(fname_mt) {
+    fp=openfp(fname_mt,fext,"r",&cbuf);
+    printf("\n# reading %s",cbuf);
+  } else {
+    fp=STDIN;
+    printf("\n# reading from stdin");
+  }
+
+  /* read file */
+  mm=nn=0;
+  switch(seqmode) {
+  case SEQ_MOLPHY: 
+    datmat = fread_mat_lls(fp, &mm, &nn); break;
+  case SEQ_PAML: 
+    datmat = fread_mat_lfh(fp, &mm, &nn); break;
+  case SEQ_PAUP: 
+    datmat = fread_mat_paup(fp, &mm, &nn); break;
+  case SEQ_MT: 
+  default: 
+    datmat = fread_mat(fp, &mm, &nn); break;  
+  }
+  if(fname_mt) {fclose(fp);  FREE(cbuf);}
   printf("\n# M:%d N:%d",mm,nn);
 
   /* allocating buffers */
@@ -194,6 +228,7 @@ int main(int argc, char** argv)
     fwrite_vec(fp,datvec,mm);
     fclose(fp); FREE(cbuf);
   }
+  if(fname_mt && !fname_rmt) fname_rmt=rmvaxt(fname_mt);  
   if(fname_rmt!=NULL) { /* binary write to file */
     fp=openfp(fname_rmt,fext_rmt,"w",&cbuf);
     printf("\n# writing %s",cbuf);
