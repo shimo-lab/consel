@@ -2,7 +2,7 @@
 
   catmt.c : concanate mt files and selection by KH-test
 
-  Time-stamp: <2001-05-17 07:18:27 shimo>
+  Time-stamp: <2001-06-23 11:41:24 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -23,7 +23,7 @@
 #include "misc.h"
 #include "rand.h"
 
-static const char rcsid[] = "$Id: catmt.c,v 1.1 2001/05/16 22:18:30 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catmt.c,v 1.2 2001/05/29 06:35:44 shimo Exp shimo $";
 
 typedef struct {
   int m;
@@ -110,13 +110,13 @@ int main(int argc, char** argv)
     byebye();
   } else {
     nfile--;
-    fname_out = fname_vt =fnamev_in[nfile];
+    fname_out=fnamev_in[nfile];
+    fname_vt=rmvaxt(fname_out);
   }
 
   /* reading the mat */
   for(n=ifile=0;ifile<nfile;ifile++){
-    cbuf=mstrcat(fnamev_in[ifile],fext_mt);
-    if((fp=fopen(cbuf,"r"))==NULL) error("cant open %s",cbuf);
+    fp=openfp(fnamev_in[ifile],fext_mt,"r",&cbuf);
     printf("\n# reading %s",cbuf);
     datmat=fcatread_mat(fp,datmat);
     printf(" %d",datmat->n-n); n=datmat->n;
@@ -127,8 +127,7 @@ int main(int argc, char** argv)
   if(sw_kht) do_kht();
 
   /* writing the mat */
-  cbuf = mstrcat(fname_out,fext_mt);
-  if((fp=fopen(cbuf,"w"))==NULL) error("cant open %s",cbuf);
+  fp=openfp(fname_out,fext_mt,"w",&cbuf);
   printf("\n# writing %s",cbuf);
   fwrite_mat(fp,datmat->me,datmat->m,datmat->n);
   FREE(cbuf); fclose(fp);
@@ -190,8 +189,7 @@ int do_kht()
 	   khtalpha,m,m0);
 	   
     /* write order vector */
-    cbuf = mstrcat(fname_vt,fext_vt);
-    if((fp=fopen(cbuf,"w"))==NULL) error("cant open %s",cbuf);
+    fp=openfp(fname_vt,fext_vt,"w",&cbuf);
     printf("\n# writing %s",cbuf);
     fwrite_ivec(fp,orderv,m0);
     FREE(cbuf); fclose(fp);
