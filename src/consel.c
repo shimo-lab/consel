@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2003-07-28 16:08:24 shimo>
+  Time-stamp: <2004-11-11 17:10:35 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.17 2002/08/21 00:52:41 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.18 2003/07/28 07:11:02 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -595,7 +595,7 @@ int genrep()
       /* calculate the statistics for the replicates */
       repminmaxs(repmats[i],statmats[i],mm,bb[i],cm,
 		 assvec,asslen,buf1,buf2);
-      free_lmat(repmats[i],cm);
+      free_lmat(repmats[i],mm);
       putdot();
     }
   }
