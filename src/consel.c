@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2001-05-30 07:13:48 shimo>
+  Time-stamp: <2001-06-07 09:54:53 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.3 2001/05/29 06:35:31 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.4 2001/05/31 02:48:32 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -324,7 +324,7 @@ int do_rmtmode()
   /* reading rmt */
   mm=kk=0;
   if(fname_rmt){ /* binary read from file */
-    fp=openfp(fname_rmt,fext_rmt,"r",&cbuf);
+    fp=openfp(fname_rmt,fext_rmt,"rb",&cbuf);
     printf("\n# reading %s",cbuf);
     datvec=fread_bvec(fp,&mm); 
     rr=fread_bvec(fp,&kk); 
@@ -350,6 +350,9 @@ int do_rmtmode()
   printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
   printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
   printf("\n# M:%d",mm);
+
+  if(kk<2) sw_doau=0;
+  if(kk<1) sw_domc=0;
 
   /* reading association vector */
   if(fname_ass){
@@ -474,7 +477,7 @@ int do_repmode()
   /* reading rep */
   cm=kk=0;
   if(fname_rep){ /* binary read from file */
-    fp=openfp(fname_rep,fext_rep,"r",&cbuf);
+    fp=openfp(fname_rep,fext_rep,"rb",&cbuf);
     printf("\n# reading %s",cbuf);
     orderv=fread_bivec(fp,&cm); obsvec=fread_bvec(fp,&cm);
     rr=fread_bvec(fp,&kk); bb=fread_bivec(fp,&kk);
@@ -887,7 +890,7 @@ int write_rep()
   int i;
 
   if(fname_rep) { /* binary write to file */
-    fp=openfp(fname_rep,fext_rep,"w",&cbuf);
+    fp=openfp(fname_rep,fext_rep,"wb",&cbuf);
     printf("\n# writing %s",cbuf);
     fwrite_bivec(fp,orderv,cm); fwrite_bvec(fp,obsvec,cm);
     fwrite_bvec(fp,rr,kk); fwrite_bivec(fp,bb,kk);
