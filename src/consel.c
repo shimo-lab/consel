@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-03-03 10:43:59 shimo>
+  Time-stamp: <2002-04-18 23:59:15 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.13 2002/03/01 09:39:55 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.14 2002/03/03 14:58:44 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -563,6 +563,8 @@ int read_scale()
   output1: statmats
   output2: rr,bb,kk
   work: buf1,buf2,buf3
+
+  freeing repmats!!!
  */
 int genrep()
 {
@@ -588,12 +590,12 @@ int genrep()
     kk=kk1; rr=rr1; bb=bb1;
   } else { /* without rescaling approximation */
     statmats=NEW_A(kk,double**);
-    for(i=0;i<kk;i++)
-      statmats[i]=new_lmat(cm,bb[i]);
-    /* calculate the statistics for the replicates */
     for(i=0;i<kk;i++) {
+      statmats[i]=new_lmat(cm,bb[i]);
+      /* calculate the statistics for the replicates */
       repminmaxs(repmats[i],statmats[i],mm,bb[i],cm,
 		 assvec,asslen,buf1,buf2);
+      free_lmat(repmats[i],cm);
       putdot();
     }
   }
