@@ -1,5 +1,5 @@
 /* rand.h 
-$Id: rand.h,v 1.4 2002/02/20 08:53:47 shimo Exp shimo $
+$Id: rand.h,v 1.5 2002/02/28 07:44:27 shimo Exp shimo $
 */
 double mrand(void);      /* returns random # in [0,1) */
 void smrand(int seed),   /* seeds mrand() */
@@ -35,3 +35,4 @@ double pchisq(double x, double df);
 double tchisq(double x, double df);
 double pchisqnc(double x, double df, double nc);
 double tchisqnc(double x, double df, double nc);
+double critchisqnc (double p, double df, double nc);

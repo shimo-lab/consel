@@ -11,7 +11,7 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id: rand.c,v 1.4 2002/02/20 08:53:40 shimo Exp shimo $
+ $Id: rand.c,v 1.5 2002/02/28 07:45:01 shimo Exp shimo $
 
  */
 
@@ -785,4 +785,29 @@ double tchisqnc(double x, double df, double nc)
   }
   return p;
 }
+
+#define	CHI_EPSILON     0.000001    /* accuracy of critchi approximation */
+#define	CHI_MAX     99999.0         /* maximum chi square value */
+double critchisqnc (double p, double df, double nc)
+{
+	double	minchisq = 0.0;
+	double	maxchisq = CHI_MAX+nc;
+	double	chisqval;
+	
+	if (p <= 0.0)
+		return (maxchisq);
+	else if (p >= 1.0)
+		return (0.0);
+	
+	chisqval = df / sqrt (p) + nc;    /* fair first value */
+	while (maxchisq - minchisq > CHI_EPSILON)
+		{
+		if (tchisqnc (chisqval, df,nc) < p)
+			maxchisq = chisqval;
+		else
+			minchisq = chisqval;
+		chisqval = (maxchisq + minchisq) * 0.5;
+		}
+	return (chisqval);
+	}
 
