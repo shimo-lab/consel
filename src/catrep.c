@@ -2,13 +2,13 @@
 
   catrep.c : join and select rep files
 
-  Time-stamp: <2001-04-21 19:56:33 shimo>
+  Time-stamp: <2001-05-05 23:22:40 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
 
   typical usage:
-  # foo1.rep foo2.rep -> foo.pv
+  # foo1.rep foo2.rep -> foo.rep
   catrep foo1 foo2 foo
   # selecting replicates with scales in vt file
   catrep -p new.pa fooin fooout
@@ -19,39 +19,42 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: catrep.c,v 1.1 2001/05/05 09:12:00 shimo Exp shimo $";
 
 typedef struct {
   int kk; /* number of scales */
   int *bb; /* kk-vector: numnbers of the replicates */
   double *rr; /* kk-vector: scales = (rep size)/(orig size) */
-  int cm; /* number of itmes */
-  double ***mats; /* kk-array of cm x bb[i] matrices */
-  double *obs; /* cm-vector of observations */
-  int *ix1; /* cm-vector of item-id (maybe) */
-  double *ax1; /* cm-vector of data (maybe) */
+  int cm; /* number of itmes (mm in rmt) */
+  double ***mats; /* kk-array of {cm,mm} x bb[i] matrices */
+  double *obs; /* {cm,rmt}-vector of observations */
+  int *ord; /* cm-vector of id's (only in rep) */
 } repstat;
+
+int mode_rmt=0;
 
 void printrepf(repstat *rp) {
   int i;
   printf("\n# K:%d",rp->kk);
   printf("\n# R:"); for(i=0;i<rp->kk;i++) printf("%g ",rp->rr[i]);
   printf("\n# B:"); for(i=0;i<rp->kk;i++) printf("%d ",rp->bb[i]);
-  printf("\n# CM:%d",rp->cm);
+  if(mode_rmt) printf("\n# MM:%d",rp->cm);
+  else printf("\n# CM:%d",rp->cm);
 }
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
 
 int mode_nop=0;
+int sw_sort=1;
 char *fname_pa = NULL;
 char **fnamev_in = NULL;
 int nfile;
 char *fname_out = NULL;
 char *fext_pa = ".pa";
 char *fext_rep = ".rep";
+char *fext_rmt = ".rmt";
 double rreps=0.5e-2;
-int sw_sort=0;
 
 repstat **repins=NULL;
 int nrepins=0;
@@ -65,6 +68,8 @@ int main(int argc, char** argv)
   FILE *fp;
   char *cbuf;
   repstat *rp;
+
+  printf("# %s",rcsid);
 
   fnamev_in=NEW_A(argc-1,char*);
   nfile=0;
@@ -89,8 +94,10 @@ int main(int argc, char** argv)
       i+=1;
     } else if(streq(argv[i],"-n")) {
       mode_nop=1;
-    } else if(streq(argv[i],"-s")) {
-      sw_sort=1;
+    } else if(streq(argv[i],"-m")) {
+      mode_rmt=1;
+    } else if(streq(argv[i],"--no_sort")) {
+      sw_sort=0;
     } else byebye();
   }
 
@@ -109,18 +116,20 @@ int main(int argc, char** argv)
     printf("\n# reading %s",fname_pa);
     reppar.kk=0;
     reppar.rr=fread_vec(fp,&(reppar.kk));
-    /* reppar.bb=fread_ivec(fp,&(reppar.kk)); */
     fclose(fp);
   }
 
   /* reading the replicates */
   repins=NEW_A(nfile,repstat*);
+
   for(ifile=0;ifile<nfile;ifile++){
-    cbuf=mstrcat(fnamev_in[ifile],fext_rep);
+    cbuf=mstrcat(fnamev_in[ifile],mode_rmt?fext_rmt:fext_rep);
     if((fp=fopen(cbuf,"r"))==NULL) error("cant open %s",cbuf);
     printf("\n# reading %s.",cbuf);
+
     rp=repins[ifile]=NEW_A(1,repstat);
     rp->cm=rp->kk=0;
+    if(!mode_rmt) rp->ord=fread_bivec(fp,&(rp->cm));
     rp->obs=fread_bvec(fp,&(rp->cm));
     rp->rr=fread_bvec(fp,&(rp->kk));
     rp->bb=fread_bivec(fp,&(rp->kk));
@@ -131,8 +140,6 @@ int main(int argc, char** argv)
       for(i=0;i<rp->kk;i++) {
 	rp->mats[i]=fread_bmat(fp,&(rp->cm),(rp->bb)+i); putdot();
       }
-      rp->ix1=fread_bivec(fp,&(rp->cm));
-      rp->ax1=fread_bvec(fp,&(rp->cm));
     } else {
       printf(" --- skipped.");
     }
@@ -140,15 +147,13 @@ int main(int argc, char** argv)
     FREE(cbuf); fclose(fp);
   }
 
-  /* check if read files are compatible */
+  /* check if read files are compatible to each other */
   repin.cm=repins[0]->cm;
   repin.obs=new_vec(repin.cm);
-  repin.ix1=new_ivec(repin.cm);
-  repin.ax1=new_vec(repin.cm);
+  if(!mode_rmt) repin.ord=new_ivec(repin.cm);
   for(i=0;i<repin.cm;i++) {
     repin.obs[i]=repins[0]->obs[i];
-    repin.ix1[i]=repins[0]->ix1[i];
-    repin.ax1[i]=repins[0]->ax1[i];
+    if(!mode_rmt) repin.ord[i]=repins[0]->ord[i];
   }
   for(k=ifile=0;ifile<nfile;ifile++){
     if(repins[ifile]->cm != repin.cm) error("cm mismatch");
@@ -246,18 +251,17 @@ int main(int argc, char** argv)
   }
 
   /* output */
-  fname_out = mstrcat(fname_out,fext_rep);
+  fname_out = mstrcat(fname_out,mode_rmt?fext_rmt:fext_rep);
   if((fp=fopen(fname_out,"w"))==NULL) error("cant open %s",fname_out);
   printf("\n# writing %s.",fname_out);
+  if(!mode_rmt) fwrite_bivec(fp,repout.ord,repout.cm);
   fwrite_bvec(fp,repout.obs,repout.cm);
   fwrite_bvec(fp,repout.rr,repout.kk);
   fwrite_bivec(fp,repout.bb,repout.kk);
   fwrite_bi(fp,repout.kk);
   for(i=0;i<repout.kk;i++) {
-    fwrite_bmat(fp,repout.mats[i],repout.cm,repout.bb[i]); putchar('.');
+    fwrite_bmat(fp,repout.mats[i],repout.cm,repout.bb[i]); putdot();
   }
-  fwrite_bivec(fp,repout.ix1,repout.cm);
-  fwrite_bvec(fp,repout.ax1,repout.cm);
 
   printf("\n# exit normally\n");
   exit(0);
