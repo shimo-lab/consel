@@ -11,12 +11,14 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id: rand.c,v 1.5 2002/02/28 07:45:01 shimo Exp shimo $
+ $Id: rand.c,v 1.6 2002/03/01 05:29:23 shimo Exp shimo $
 
  */
 
 #include <math.h>
 #include <limits.h>
+#include <stdio.h>
+#include "misc.h"
 #include "rand.h"
 
 
@@ -86,6 +88,12 @@ void smrand(seed)
 int     seed;
 {
     int         i;
+    long x;
+
+    if(seed<=0) {
+      x = get_date();
+      seed = 11+(int)(x % 3000L);
+    }
 
     mrand_list[0] = (123413*seed) % MODULUS;
     for ( i = 1; i < 55; i++ )
