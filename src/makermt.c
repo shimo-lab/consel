@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2002-04-18 16:38:52 shimo>
+  Time-stamp: <2002-08-30 22:41:40 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -24,7 +24,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.11 2002/02/20 08:55:13 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.12 2002/04/18 16:29:49 shimo Exp shimo $";
 
 
 /*
@@ -77,7 +77,7 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
 
-int seed=123;
+unsigned long seed=0;
 char *fname_pa = NULL;
 char *fname_mt = NULL;
 char *fname_rmt = NULL;
@@ -94,6 +94,8 @@ int seqmode=SEQ_MT;
 char *fext_molphy=".lls";
 char *fext_paml=".lnf";
 char *fext_paup=".txt";
+
+double bbfact=1.0;
 
 /* msboot parameter */
 int kk,*bb,*bn;
@@ -243,12 +245,17 @@ int main(int argc, char** argv)
       j++;
     } else if(streq(argv[i],"-s")) {
       if(i+1>=argc ||
-	 sscanf(argv[i+1],"%d",&seed) != 1)
+	 sscanf(argv[i+1],"%lu",&seed) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"-p")) {
       if(i+1>=argc) byebye();
       fname_pa=argv[i+1];
+      i+=1;
+    } else if(streq(argv[i],"-b")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&bbfact) != 1)
+	byebye();
       i+=1;
     } else if(streq(argv[i],"-f")) {
       sw_fastrep=1;
@@ -278,7 +285,9 @@ int main(int argc, char** argv)
     if(sw_fastrep) {kk=kk00; rr=rr00; bb=bb00;}
     else {kk=kk0; rr=rr0; bb=bb0;}
   }
-  printf("\n# seed:%d",seed);
+
+  for(i=0;i<kk;i++) bb[i] *= bbfact;
+  printf("\n# seed:%lu (MT19937 generator)",seed);
   printf("\n# K:%d",kk);
   printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
   printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
