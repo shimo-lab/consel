@@ -11,7 +11,7 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id: rand.c,v 1.1 1998/11/30 09:03:13 shimo Exp shimo $
+ $Id: rand.c,v 1.2 2001/04/16 07:02:13 shimo Exp shimo $
 
  */
 
@@ -101,7 +101,7 @@ int     seed;
 
 
 /* rnorm -- generating normal random variable N(0,1) using
-            the "RATIO-OF-UNIFORMS" method propsed by 
+            the "RATIO-OF-UNIFORMS" method proposed by 
             Kinderman and Monahan (1977)
  REF: "Non-Uniform Random Variate Generation" Luc Devroye (1986, p.199)
  PROGRAMMER: H. Shimodaira <shimo@ism.ac.jp> 1997-01
@@ -520,4 +520,10 @@ int 	df2;
 #define I_SQRT_2_PI 0.398942280401432677939946059934 /* 1/sqrt(2pi) */
 double dnorm(double x) {
   return  I_SQRT_2_PI*exp(-0.5*x*x);
+}
+
+double pnorm(double x) {
+  if(fabs(x)<Z_MAX-1e-6) return poz(x);
+  if(x>0.0) return 1.0-dnorm(x)/x;
+  else return -dnorm(x)/x;
 }
