@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-04-19 09:22:33 shimo>
+  Time-stamp: <2001-05-05 23:42:20 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.3 2001/04/16 07:01:51 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.4 2001/05/05 09:11:22 shimo Exp shimo $";
 
 
 /*
@@ -61,15 +61,13 @@ double **scaleboot(double **datmat, /* m x n data matrix */
     for(k=0;k<m;k++) {
       x=0.0;
       for(j=0;j<n;j++) x+=wv[j]*datmat[k][j];
-      repmat[k][i]=x/r;
+      repmat[k][i]=x/r; /* rescaling with 1/r */
     }
   }
 
   free_vec(wv); free_vec(rv);
   return repmat;
 }
-
-
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -89,7 +87,7 @@ int kk,*bb,*bn;
 double *rr;
 int kk0=10;
 double rr0[]={0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4};
-int bb0[]={1000,1000,1000,1000,1000,1000,1000,1000,1000,1000};
+int bb0[]={10000,10000,10000,10000,10000,10000,10000,10000,10000,10000};
 
 double **datmat=NULL;
 int mm; int nn;
@@ -137,7 +135,7 @@ int main(int argc, char** argv)
   if(fname_pa!=NULL) {
     fname_pa = mstrcat(fname_pa,fext_pa);
     if((fp=fopen(fname_pa,"r"))==NULL) error("cant open %s",fname_pa);
-    printf("\n# reading %s.",fname_pa);
+    printf("\n# reading %s",fname_pa);
     kk=0;
     rr=fread_vec(fp,&kk); putdot();
     bb=fread_ivec(fp,&kk); putdot();
@@ -155,12 +153,12 @@ int main(int argc, char** argv)
   if(fname_mt!=NULL) {
     fname_mt = mstrcat(fname_mt,fext_mt);
     if((fp=fopen(fname_mt,"r"))==NULL) error("cant open %s",fname_mt);
-    printf("\n# reading %s.",fname_mt);
-    datmat=fread_mat(fp,&mm,&nn); putdot();
+    printf("\n# reading %s",fname_mt);
+    datmat=fread_mat(fp,&mm,&nn);
     fclose(fp);
   } else {
-    printf("\n# reading from stdin.");
-    datmat=fread_mat(STDIN,&mm,&nn); putdot();
+    printf("\n# reading from stdin");
+    datmat=fread_mat(STDIN,&mm,&nn);
   }
   printf("\n# M:%d N:%d",mm,nn);
 
@@ -194,14 +192,14 @@ int main(int argc, char** argv)
   if(fname_vt!=NULL) {
     fname_vt = mstrcat(fname_vt,fext_vt);
     if((fp=fopen(fname_vt,"w"))==NULL) error("cant open %s",fname_vt);
-    printf("\n# writing %s.",fname_vt);
-    fwrite_vec(fp,datvec,mm); putdot();
+    printf("\n# writing %s",fname_vt);
+    fwrite_vec(fp,datvec,mm);
     fclose(fp);
   }
-  if(fname_rmt!=NULL) {
+  if(fname_rmt!=NULL) { /* binary write to file */
     fname_rmt = mstrcat(fname_rmt,fext_rmt);
     if((fp=fopen(fname_rmt,"w"))==NULL) error("cant open %s",fname_rmt);
-    printf("\n# writing %s.",fname_rmt);
+    printf("\n# writing %s",fname_rmt);
     fwrite_bvec(fp,datvec,mm);
     fwrite_bvec(fp,rr,kk);
     fwrite_bivec(fp,bb,kk);
@@ -211,9 +209,9 @@ int main(int argc, char** argv)
       putdot();
     }
     fclose(fp);
-  } else {
-    printf("\n# writing to stdout.");
-    printf("\n# L:\n"); write_vec(datvec,mm);
+  } else { /* ascii write to stdout */
+    printf("\n# writing to stdout");
+    printf("\n# OBS:\n"); write_vec(datvec,mm);
     printf("\n# R:\n"); write_vec(rr,kk);
     printf("\n# B:\n"); write_ivec(bb,kk);
     printf("\n# RMAT:\n");
