@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-06-23 14:24:04 shimo>
+  Time-stamp: <2002-01-10 11:29:28 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -22,7 +22,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.8 2001/06/08 01:22:04 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.9 2001/08/10 06:01:59 shimo Exp shimo $";
 
 
 /*
@@ -98,6 +98,8 @@ double *rr;
 int kk0=10;
 double rr0[]={0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4};
 int bb0[]={10000,10000,10000,10000,10000,10000,10000,10000,10000,10000};
+double rr00[]={1.0}; int bb00[]={10000}; int kk00=1; 
+int sw_fastrep=0;
 
 double **datmat=NULL;
 int mm; int nn;
@@ -137,6 +139,8 @@ int main(int argc, char** argv)
       if(i+1>=argc) byebye();
       fname_vt=argv[i+1];
       i+=1;
+    } else if(streq(argv[i],"-f")) {
+      sw_fastrep=1;
     } else if(streq(argv[i],"-L")) {
       sw_lmat=1;
     } else if(streq(argv[i],"--molphy")) {
@@ -160,7 +164,8 @@ int main(int argc, char** argv)
     bb=fread_ivec(fp,&kk); putdot();
     fclose(fp); FREE(cbuf);
   } else {
-    kk=kk0; rr=rr0; bb=bb0; 
+    if(sw_fastrep) {kk=kk00; rr=rr00; bb=bb00;}
+    else {kk=kk0; rr=rr0; bb=bb0;}
   }
   printf("\n# seed:%d",seed);
   printf("\n# K:%d",kk);
