@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2001-04-16 13:26:28 shimo>
+  Time-stamp: <2001-05-05 12:15:13 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -21,7 +21,7 @@
 #include <sys/time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.2 2001/04/11 23:27:10 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.3 2001/04/16 07:00:34 shimo Exp shimo $";
 
 /*
   error message handling
@@ -119,6 +119,7 @@ double **new_mat(int m, int n)
   double **base,*xp;
   int i;
 
+  if(m*n==0) return NULL;
   xp = new_vec(m*n);
   base = (double **)MALLOC(sizeof(double*) * m);
   for(i=0;i<m;i++) base[i] = xp + i*n;
@@ -195,6 +196,21 @@ char *mstrcat(char *str1, char *str2)
   strcpy(str+len1,str2);
   return str;
 }
+/*
+  open file
+*/
+FILE *openfp(char *name, char *ext, char *mode, char **fnamep)
+{
+  char *fname;
+  FILE *fp;
+
+  fname = mstrcat(name,ext); 
+  fp=fopen(fname,mode);
+  if(fp==NULL) error("cant open %s",fname);
+  if(fnamep != NULL) *fnamep = fname; else FREE(fname);
+  return fp;
+}
+
 
 /*
   ascii read/write
@@ -223,9 +239,11 @@ double *fread_vec(FILE *fp, int *mp)
 
   m=fread_i(fp); /* number of items */
   if(*mp>0 && *mp != m) error("size mismatch in vec");
-  A = new_vec(m);
 
-  for(i=0;i<m;i++) A[i]=fread_d(fp);
+  if(m>0) {
+    A = new_vec(m);
+    for(i=0;i<m;i++) A[i]=fread_d(fp);
+  } else A = NULL;
 
   *mp = m;
   return A;
@@ -238,9 +256,11 @@ int *fread_ivec(FILE *fp, int *mp)
 
   m=fread_i(fp); /* number of items */
   if(*mp>0 && *mp != m) error("size mismatch in ivec");
-  A = new_ivec(m);
 
-  for(i=0;i<m;i++) A[i]=fread_i(fp);
+  if(m>0) {
+    A = new_ivec(m);
+    for(i=0;i<m;i++) A[i]=fread_i(fp);
+  } else A = NULL;
 
   *mp = m;
   return A;
@@ -255,6 +275,8 @@ double **fread_mat(FILE *fp, int *mp, int *np)
   n=fread_i(fp); /* number of samples (columns) */
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   if(*np>0 && *np != n) error("size of columns mismatch in mat");
+
+  if(m*n==0) return NULL;
 
   A = new_mat(m,n);
 
@@ -286,6 +308,18 @@ double **freread_mat(FILE *fp, int *mp, int *np, double **old)
 
 static int mcol=5;
 static char    *format = "%14.9g ";
+
+int fwrite_i(FILE *fp, int x)
+{
+  fprintf(fp,"%d\n",x);
+  return 0;
+}
+
+int fwrite_d(FILE *fp, double x)
+{
+  fprintf(fp,"%g\n",x);
+  return 0;
+}
 
 int fwrite_vec(FILE *fp, double *A, int m)
 {
@@ -327,6 +361,8 @@ int fwrite_mat(FILE *fp, double **A, int m, int n)
   double *xp;
 
   fprintf(fp,"#!MAT:\n%d %d\n",m,n);
+
+  if(A==NULL) return 0;
 
   for(i=0;i<m;i++) {
     fprintf(fp,"\n# row: %d\n",i);
@@ -547,7 +583,7 @@ double eps = 1.0e-20; /* ! */
 
 
 
-/* borrowed from mesch */
+/* borrowed from mesch and then corrected a bug (almost rewritten) */
 
 #define	MAX_STACK	60
 
@@ -558,68 +594,137 @@ double eps = 1.0e-20; /* ! */
 	-- the sorted vector x is returned */
 void sort(double *xve, int *order, int dim)
 {
-    double tmp, v;
-    int	i, j, l, r, tmp_i;
-    int	stack[MAX_STACK], sp;
+  double tmp, v;
+  int i, j, l, r, tmp_i,k;
+  int stack[MAX_STACK], sp;
 
-    if(order != NULL) for(i=0;i<dim;i++) order[i]=i;
 
-    if ( dim <= 1 )
-	return;
+  if(order != NULL) for(i=0;i<dim;i++) order[i]=i;
+  if ( dim <= 1 ) return;
+  sp = 0; l = 0; r = dim-1;
+  for ( ; ; ) {
+    while ( r > l ) {
+      /* sort xve[l],xve[l+1],...,xve[r] */
+      k=(r+l)/2; /* often a good divider */
+      v = xve[k]; i = l-1; j = r+1;
+      for ( ; ; ) {
+	/* make 
+	   xve[l],...,xve[j] <= v;
+	   xve[j+1],...,xve[i-1] == v;
+	   xve[i],...,xve[r] >= v;
+	*/
+	while (i<r && xve[++i]<=v);
+	while (j>l && xve[--j]>=v);
+	if ( i > j ) break;
+	if(i==r) j=k; else if(j==l) i=k;
+	tmp = xve[i]; xve[i] = xve[j]; xve[j] = tmp;
+	if ( order != NULL ) {
+	  tmp_i = order[i]; order[i] = order[j]; order[j] = tmp_i;}
+	/* note that l <= k < r, so checking i==r must be first */
+	if(i==r) {j=r-1; break;} else if(j==l) {i=l+1; break;}
+      }
 
-    /* using quicksort algorithm in Sedgewick,
-       "Algorithms in C", Ch. 9, pp. 118--122 (1990) */
-    sp = 0;
-    l = 0;	r = dim-1;	v = xve[0];
-    for ( ; ; )
-    {
-	while ( r > l )
-	{
-	    /* "i = partition(x_ve,l,r);" */
-	    v = xve[r];
-	    i = l-1;
-	    j = r;
-	    for ( ; ; )
-	    {
-		while ( xve[++i] < v )
-		    ;
-		while ( xve[--j] > v )
-		    ;
-		if ( i >= j )	break;
-		
-		tmp = xve[i];
-		xve[i] = xve[j];
-		xve[j] = tmp;
-		if(order != NULL) {
-		  tmp_i = order[i];
-		  order[i] = order[j];
-		  order[j] = tmp_i;
-		}
-	    }
-
-	    tmp = xve[i];
-	    xve[i] = xve[r];
-	    xve[r] = tmp;
-	    if(order != NULL) {
-	      tmp_i = order[i];
-	      order[i] = order[r];
-	      order[r] = tmp_i;
-	    }
-
-	    if ( i-l > r-i )
-	    {   stack[sp++] = l;   stack[sp++] = i-1;   l = i+1;   }
-	    else
-	    {   stack[sp++] = i+1;   stack[sp++] = r;   r = i-1;   }
+      if ( j-l > r-i ) {
+	  stack[sp++] = l; stack[sp++] = j; l = i;
+	} else {
+	  stack[sp++] = i; stack[sp++] = r; r = j; 
 	}
-
-	/* recursion elimination */
-	if ( sp == 0 )
-	    break;
-	r = stack[--sp];
-	l = stack[--sp];
     }
 
-    return;
+    /* recursion elimination */
+    if ( sp == 0 ) break;
+    r = stack[--sp]; l = stack[--sp];
+  }
+}
+
+void isort(int *xve, int *order, int dim)
+{
+  int tmp, v;
+  int i, j, l, r, tmp_i,k;
+  int stack[MAX_STACK], sp;
+
+
+  if(order != NULL) for(i=0;i<dim;i++) order[i]=i;
+  if ( dim <= 1 ) return;
+  sp = 0; l = 0; r = dim-1;
+  for ( ; ; ) {
+    while ( r > l ) {
+      /* sort xve[l],xve[l+1],...,xve[r] */
+      k=(r+l)/2; /* often a good divider */
+      v = xve[k]; i = l-1; j = r+1;
+      for ( ; ; ) {
+	/* make 
+	   xve[l],...,xve[j] <= v;
+	   xve[j+1],...,xve[i-1] == v;
+	   xve[i],...,xve[r] >= v;
+	*/
+	while (i<r && xve[++i]<=v);
+	while (j>l && xve[--j]>=v);
+	if ( i > j ) break;
+	if(i==r) j=k; else if(j==l) i=k;
+	tmp = xve[i]; xve[i] = xve[j]; xve[j] = tmp;
+	if ( order != NULL ) {
+	  tmp_i = order[i]; order[i] = order[j]; order[j] = tmp_i;}
+	/* note that l <= k < r, so checking i==r must be first */
+	if(i==r) {j=r-1; break;} else if(j==l) {i=l+1; break;}
+      }
+
+      if ( j-l > r-i ) {
+	  stack[sp++] = l; stack[sp++] = j; l = i;
+	} else {
+	  stack[sp++] = i; stack[sp++] = r; r = j; 
+	}
+    }
+
+    /* recursion elimination */
+    if ( sp == 0 ) break;
+    r = stack[--sp]; l = stack[--sp];
+  }
+}
+
+void psort(void **xve, int *order, int dim,int (*compar)(void *, void *))
+{
+  void *tmp, *v;
+  int i, j, l, r, tmp_i,k;
+  int stack[MAX_STACK], sp;
+
+
+  if(order != NULL) for(i=0;i<dim;i++) order[i]=i;
+  if ( dim <= 1 ) return;
+  sp = 0; l = 0; r = dim-1;
+  for ( ; ; ) {
+    while ( r > l ) {
+      /* sort xve[l],xve[l+1],...,xve[r] */
+      k=(r+l)/2; /* often a good divider */
+      v = xve[k]; i = l-1; j = r+1;
+      for ( ; ; ) {
+	/* make 
+	   xve[l],...,xve[j] <= v;
+	   xve[j+1],...,xve[i-1] == v;
+	   xve[i],...,xve[r] >= v;
+	*/
+	while (i<r && (*compar)(xve[++i],v)<=0);
+	while (j>l && (*compar)(xve[--j],v)>=0);
+	if ( i > j ) break;
+	if(i==r) j=k; else if(j==l) i=k;
+	tmp = xve[i]; xve[i] = xve[j]; xve[j] = tmp;
+	if ( order != NULL ) {
+	  tmp_i = order[i]; order[i] = order[j]; order[j] = tmp_i;}
+	/* note that l <= k < r, so checking i==r must be first */
+	if(i==r) {j=r-1; break;} else if(j==l) {i=l+1; break;}
+      }
+
+      if ( j-l > r-i ) {
+	  stack[sp++] = l; stack[sp++] = j; l = i;
+	} else {
+	  stack[sp++] = i; stack[sp++] = r; r = j; 
+	}
+    }
+
+    /* recursion elimination */
+    if ( sp == 0 ) break;
+    r = stack[--sp]; l = stack[--sp];
+  }
 }
 
 int *perm_ivec(int *px, int *iv, int n) 
@@ -647,6 +752,15 @@ int *perm_ivec(int *px, int *iv, int n)
   for(s=0;s<n;s++) px[s] -= n;
 
   return iv;
+}
+
+int sort_vec(double *v, int n)
+{
+  int i;
+  for(i=1;i<n;i++) if(v[i] < v[i-1]) break;
+  if(i==n) return 1; /* already sorted */
+  sort(v,NULL,n);
+  return 0;
 }
 
 
@@ -717,6 +831,9 @@ double *lsfit(double **X, double *Y, double *W,
 
   /* invmat = inverse matrix of covmat */
   luinverse(covmat,invmat,m);
+  x=sym_mat(invmat,m);
+  if(x>1e-5) warning("lsfit: covmat singularity %g",x);
+  if(x>1e-3) warning("lsfit: COVARIANCE MATRIX IS SINGULAR");
 
   /* calculate the beta */
   for(i=0;i<m;i++) {
@@ -734,3 +851,22 @@ double *lsfit(double **X, double *Y, double *W,
   return beta;
 }
 
+
+
+int argmin_vec(double *vec, int n)
+{
+  int i,k;
+  double x;
+  k=0; x=vec[0];
+  for(i=1;i<n;i++) if(vec[i]<x) {x=vec[i]; k=i;}
+  return k;
+}
+
+int argmax_vec(double *vec, int n)
+{
+  int i,k;
+  double x;
+  k=0; x=vec[0];
+  for(i=1;i<n;i++) if(vec[i]>x) {x=vec[i]; k=i;}
+  return k;
+}
