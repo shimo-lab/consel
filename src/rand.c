@@ -11,7 +11,7 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id: rand.c,v 1.6 2002/03/01 05:29:23 shimo Exp shimo $
+ $Id: rand.c,v 1.7 2002/03/03 14:56:32 shimo Exp shimo $
 
  */
 
@@ -21,92 +21,20 @@
 #include "misc.h"
 #include "rand.h"
 
-
-/* Pseudo random number generator data structures */
-/* Knuth's lagged Fibonacci-based generator: See "Seminumerical Algorithms:
-   The Art of Computer Programming" sections 3.2-3.3 */
-
-#ifdef LONG_MAX
-#define MODULUS LONG_MAX
-#else
-#define MODULUS 1000000000L     /* assuming long's at least 32 bits long */
-#endif
-
-static long mrand_list[56];
-static int  started = 0;
-static int  inext = 0, inextp = 31;
-
-double mrand(void)
-{
-    long        lval;
-    static double  factor = 1.0/((double)MODULUS);
-    
-    if ( ! started )
-        smrand(3127);
-    
-    inext = (inext >= 54) ? 0 : inext+1;
-    inextp = (inextp >= 54) ? 0 : inextp+1;
-
-    lval = mrand_list[inext]-mrand_list[inextp];
-    if ( lval < 0L )
-        lval += MODULUS;
-    mrand_list[inext] = lval;
-    
-    return (double)lval*factor;
-}
-
-
 /* mrandlist -- fills the array a[] with len random numbers */
-void    mrandlist(a, len)
-double    a[];
-int     len;
+void mrandlist(double *a, int len)
 {
-    int         i;
-    long        lval;
-    static double  factor = 1.0/((double)MODULUS);
-    
-    if ( ! started )
-        smrand(3127);
-    
-    for ( i = 0; i < len; i++ )
-    {
-        inext = (inext >= 54) ? 0 : inext+1;
-        inextp = (inextp >= 54) ? 0 : inextp+1;
-        
-        lval = mrand_list[inext]-mrand_list[inextp];
-        if ( lval < 0L )
-            lval += MODULUS;
-        mrand_list[inext] = lval;
-        
-        a[i] = (double)lval*factor;
-    }
+  int i;
+  for ( i = 0; i < len; i++ ) a[i]=mrand();
 }
 
-
+void init_genrand(unsigned long s);
 /* smrand -- set seed for mrand() */
-void smrand(seed)
-int     seed;
+void smrand(unsigned long seed)
 {
-    int         i;
-    long x;
-
-    if(seed<=0) {
-      x = get_date();
-      seed = 11+(int)(x % 3000L);
-    }
-
-    mrand_list[0] = (123413*seed) % MODULUS;
-    for ( i = 1; i < 55; i++ )
-        mrand_list[i] = (123413*mrand_list[i-1]) % MODULUS;
-
-    started = 1;
-
-    /* run mrand() through the list sufficient times to
-       thoroughly randomise the array */
-    for ( i = 0; i < 55*55; i++ )
-        mrand();
+    if(seed==0) seed = (unsigned long)get_date();
+    init_genrand(seed);
 }
-
 
 /* rnorm -- generating normal random variable N(0,1) using
             the "RATIO-OF-UNIFORMS" method proposed by 
