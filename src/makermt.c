@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2002-02-17 21:11:45 shimo>
+  Time-stamp: <2002-04-18 16:38:52 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -24,7 +24,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.10 2002/01/10 02:51:10 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.11 2002/02/20 08:55:13 shimo Exp shimo $";
 
 
 /*
@@ -107,7 +107,7 @@ int sw_multi=0;
 
 double **datmat=NULL;
 int mm=0; int nn=0;
-double ***repmats=NULL;
+double **repmat=NULL;
 double *datvec=NULL;
 
 
@@ -152,8 +152,6 @@ int genrmt(char *infile, char *outfile)
 
   /* allocating buffers */
   datvec=new_vec(mm);
-  repmats=(double ***)MALLOC((sizeof(double **))*kk);
-  for(i=0;i<kk;i++) repmats[i]=new_lmat(mm,bb[i]);
   bn=new_ivec(kk); rr1=new_vec(kk);
 
   /* calculate the log-likelihoods */
@@ -161,22 +159,14 @@ int genrmt(char *infile, char *outfile)
     x=0; for(j=0;j<nn;j++) x+=datmat[i][j];
     datvec[i]=x;
   }
-
-  /* generating the replicates by resampling*/
-  for(i=j=0;i<kk;i++) j+=bb[i];
-  printf("\n# start generating total %d replicates for %d items",j,mm);
-  fflush(STDOUT);
-  t0=get_time();
+  
+  /* calculate scales */
   for(i=0;i<kk;i++) {
     bn[i]=(int)(rr[i]*nn); /* sample size for bootstrap */
     rr1[i]=(double)bn[i]/nn; /* recalculate rr for integer adjustment */
-    scaleboot(datmat,repmats[i],mm,nn,bn[i],bb[i]);
-    putdot();
   }
-  t1=get_time();
-  printf("\n# time elapsed for bootstrap t=%g sec",t1-t0);
 
-  /* saving the results */
+  /* open out file */
   if(outfile) {
     /* vt ascii write to file */
     fp=openfp(outfile,fext_vt,"w",&cbuf);
@@ -190,11 +180,6 @@ int genrmt(char *infile, char *outfile)
     fwrite_bvec(fp,rr1,kk);
     fwrite_bivec(fp,bb,kk);
     fwrite_bi(fp,kk);
-    for(i=0;i<kk;i++) {
-      fwrite_bmat(fp,repmats[i],mm,bb[i]);
-      putdot();
-    }
-    fclose(fp); FREE(cbuf);
   } else {
     /* rmt ascii write to stdout */
     printf("\n# writing to stdout");
@@ -203,15 +188,36 @@ int genrmt(char *infile, char *outfile)
     printf("\n# B:\n"); write_ivec(bb,kk);
     printf("\n# RMAT:\n");
     printf("%d\n",kk);
-    for(i=0;i<kk;i++) {
-      printf("\n## RMAT[%d]:\n",i); write_mat(repmats[i],mm,bb[i]);
+  }
+
+
+  /* generating the replicates by resampling*/
+  for(i=j=0;i<kk;i++) j+=bb[i];
+  printf("\n# start generating total %d replicates for %d items",j,mm);
+  fflush(STDOUT);
+  t0=get_time();
+
+  for(i=0;i<kk;i++) {
+    repmat=new_lmat(mm,bb[i]);
+    scaleboot(datmat,repmat,mm,nn,bn[i],bb[i]);
+    if(outfile) {
+      fwrite_bmat(fp,repmat,mm,bb[i]);
+      putdot();
+    } else {
+      printf("\n## RMAT[%d]:\n",i); write_mat(repmat,mm,bb[i]);
     }
+    free_lmat(repmat,mm);
+  }
+
+  t1=get_time();
+  printf("\n# time elapsed for bootstrap t=%g sec",t1-t0);
+
+  if(outfile) {
+    fclose(fp); FREE(cbuf);
   }
 
   /* freeing buffers */
   free_vec(bn); free_vec(rr1); free_vec(datvec); free_mat(datmat);
-  for(i=0;i<kk;i++) free_lmat(repmats[i],mm);
-  FREE(repmats);
 
   return 0;
 }
