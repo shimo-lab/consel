@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2002-02-27 13:02:45 shimo>
-  $Id: misc.h,v 1.7 2002/02/20 08:54:40 shimo Exp shimo $
+  Time-stamp: <2002-03-03 23:06:03 shimo>
+  $Id: misc.h,v 1.8 2002/02/28 07:45:54 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,6 +20,7 @@ void dprintf(int n, char *fmt, ...);
 void error(char *fmt, ...);
 void warning(char *fmt, ...);
 double get_time(void);
+long get_date(void);
 
 /* memory */
 void myfree(void *ptr);

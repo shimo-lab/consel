@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2002-02-27 13:00:51 shimo>
+  Time-stamp: <2002-03-03 23:05:47 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.8 2002/02/20 08:54:13 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.9 2002/02/28 07:45:30 shimo Exp shimo $";
 
 /*
   error message handling
@@ -70,6 +70,18 @@ double get_time(void)
   t = clock();
   x = (double) t / CLOCKS_PER_SEC;
   return x;
+}
+
+/*
+  date
+ */
+
+long get_date(void)
+{
+  time_t t;
+
+  t = time(0);
+  return (long)t;
 }
 
 /*
