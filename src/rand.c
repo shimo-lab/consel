@@ -11,7 +11,7 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id: rand.c,v 1.2 2001/04/16 07:02:13 shimo Exp shimo $
+ $Id: rand.c,v 1.3 2001/08/10 05:58:15 shimo Exp shimo $
 
  */
 
@@ -522,8 +522,254 @@ double dnorm(double x) {
   return  I_SQRT_2_PI*exp(-0.5*x*x);
 }
 
-double pnorm(double x) {
+/* OBSOLETE */
+double pnorm2(double x) { 
   if(fabs(x)<Z_MAX-1e-6) return poz(x);
   if(x>0.0) return 1.0-dnorm(x)/x;
   else return -dnorm(x)/x;
 }
+
+#define	Z_EPSILON2      1e-10       /* accuracy of critz approximation */
+#define	Z_MAX2          37.0            /* maximum meaningful z value */
+
+double        /*VAR returns z such that fabs (poz(p) - z) <= .000001 */
+qnorm (p)
+double	p;    /*VAR critical probability level */
+	{
+	double	minz = -Z_MAX2;    /* minimum of range of z */
+	double	maxz = Z_MAX2;     /* maximum of range of z */
+	double	zval = 0.0;       /* computed/returned z value */
+	double	pval;     /* prob (z) function, pval := poz (zval) */
+	
+	if (p <= 0.0 || p >= 1.0)
+		return (0.0);
+	
+	while (maxz - minz > Z_EPSILON2)
+		{
+		pval = pnorm (zval);
+		if (pval > p)
+			maxz = zval;
+		else
+			minz = zval;
+		zval = (maxz + minz) * 0.5;
+		}
+	return (zval);
+	}
+
+
+
+/****************
+
+numerical recipes special functions
+
+Ref: Press, Teukolsky, Vetterling, and Flannery (1992)
+Numerical Recipes in C (2nd ed.)
+
+ ****************/
+
+void error(char *fmt, ...);
+
+double gammln(double xx)
+     /* Returns the value ln[Gamma(xx)] for xx > 0. */
+{
+  double x,y,tmp,ser;
+  static double cof[6]={76.18009172947146,-86.50532032941677,
+			24.01409824083091,-1.231739572450155,
+			0.1208650973866179e-2,-0.5395239384953e-5};
+  int j;
+  y=x=xx;
+  tmp=x+5.5;
+  tmp -= (x+0.5)*log(tmp);
+  ser=1.000000000190015;
+  for (j=0;j<=5;j++) ser += cof[j]/++y;
+  return -tmp+log(2.5066282746310005*ser/x);
+}
+
+#define ITMAX 100
+#define EPS 3.0e-7
+void gser(double *gamser, double a, double x, double *gln)
+     /* Returns the incomplete gamma function P (a, x)
+	evaluated by its series representation as gamser.
+	Also returns ln Gamm(a) as gln. */
+{
+  int n; double sum,del,ap;
+  *gln=gammln(a);
+  if (x <= 0.0) {
+    if (x < 0.0) error("x less than 0 in routine gser");
+    *gamser=0.0;
+    return;
+  } else {
+    ap=a;
+    del=sum=1.0/a;
+    for (n=1;n<=ITMAX;n++) {
+      ++ap;
+      del *= x/ap;
+      sum += del;
+      if (fabs(del) < fabs(sum)*EPS) {
+	*gamser=sum*exp(-x+a*log(x)-(*gln));
+	return;
+      }
+    }
+    error("a too large, ITMAX too small in routine gser");
+    return;
+  }
+}
+
+#define ITMAX 100 /* Maximum allowed number of iterations. */
+#define EPS 3.0e-7 /* Relative accuracy. */
+#define FPMIN 1.0e-30 /* Number near the smallest representable 
+			 floating-point number. */
+void gcf(double *gammcf, double a, double x, double *gln)
+     /* Returns the incomplete gamma function Q(a, x) 
+	evaluated by its continued fraction representation as gammcf.
+	Also returns ln Gamma(a) as gln. */
+{
+  int i; double an,b,c,d,del,h;
+  *gln=gammln(a);
+  b=x+1.0-a;
+  c=1.0/FPMIN;
+  d=1.0/b;
+  h=d;
+  for (i=1;i<=ITMAX;i++) {
+    an = -i*(i-a);
+    b += 2.0;
+    d=an*d+b;
+    if (fabs(d) < FPMIN) d=FPMIN;
+    c=b+an/c;
+    if (fabs(c) < FPMIN) c=FPMIN;
+    d=1.0/d;
+    del=d*c;
+    h *= del;
+    if (fabs(del-1.0) < EPS) break;
+  }
+  if (i > ITMAX) error("a too large, ITMAX too small in gcf");
+  *gammcf=exp(-x+a*log(x)-(*gln))*h;
+}
+
+
+double gammp(double a, double x)
+     /* Returns the incomplete gamma function P (a, x). */
+{
+  double gamser,gammcf,gln;
+  if (x < 0.0 || a <= 0.0) error("Invalid arguments in routine gammp");
+  if (x < (a+1.0)) {
+    /* Use the series representation. */
+    gser(&gamser,a,x,&gln);
+    return gamser;
+  } else {
+    /* Use the continued fraction representation */
+    gcf(&gammcf,a,x,&gln);
+    return 1.0-gammcf; /* and take its complement. */
+  }
+}
+
+double gammq(double a, double x)
+     /* Returns the incomplete gamma function Q(a, x)=1 - P (a, x). */
+{
+  double gamser,gammcf,gln;
+  if (x < 0.0 || a <= 0.0) error("Invalid arguments in routine gammq");
+  if (x < (a+1.0)) {
+    /* Use the series representation */
+    gser(&gamser,a,x,&gln);
+    return 1.0-gamser; /* and take its complement. */
+  } else {
+    /* Use the continued fraction representation. */
+    gcf(&gammcf,a,x,&gln);
+    return gammcf;
+  }
+}
+
+
+double erfn(double x)
+     /* Returns the error function erf(x). */
+{
+  return x < 0.0 ? -gammp(0.5,x*x) : gammp(0.5,x*x);
+}
+
+double erfcn(double x)
+     /* Returns the complementary error function erfc(x). */
+{
+  return x < 0.0 ? 1.0+gammp(0.5,x*x) : gammq(0.5,x*x);
+}
+
+double erfcn2(double x)
+     /* Returns the complementary error function erfc(x)
+	with fractional error everywhere less than
+	1.2e-7. */
+{
+  double t,z,ans;
+  z=fabs(x);
+  t=1.0/(1.0+0.5*z);
+  ans=t*exp(-z*z-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+
+  t*(-0.18628806+t*(0.27886807+t*(-1.13520398+t*(1.48851587+
+  t*(-0.82215223+t*0.17087277)))))))));
+  return x >= 0.0 ? ans : 2.0-ans;
+}
+
+/*
+
+  distribution functions: normal, gamma, chisquare
+
+ */
+
+#define I_SQRT_2 0.707106781186547524400844362105 /* 1/sqrt(2) */
+double pnorm(double x) /* cumulative normal */
+{
+  return 0.5*erfcn(-x *I_SQRT_2);
+}
+
+double pgamma(double x, double nu)
+{
+  return gammp(nu,x);
+}
+
+double tgamma(double x, double nu)
+{
+  return gammq(nu,x);
+}
+
+double pchisq(double x, double df) /* cumulative chisquare */
+{
+  return gammp(0.5*df,0.5*x);
+}
+
+double tchisq(double x, double df) /* tail chisquare */
+{
+  return gammq(0.5*df,0.5*x);
+}
+
+
+#define CHSQITMAX 1000
+#define CHSQEPS 1.0e-8
+double pchisqnc(double x, double df, double nc)
+{
+  int j;
+  double a,p,z;
+
+  p=0.0; a=1.0;
+  for(j=0;j<CHSQITMAX;j++) {
+    z = a*pchisq(x,df+2*j);
+    p += z;
+    if(z/p < CHSQEPS) break;
+    a *= 0.5*nc/(j+1);
+  }
+  p*=exp(-0.5*nc);
+  return p;
+}
+
+double tchisqnc(double x, double df, double nc)
+{
+  int j;
+  double a,p,z;
+
+  p=0.0; a=1.0;
+  for(j=0;j<CHSQITMAX;j++) {
+    z = a*tchisq(x,df+2*j);
+    p += z;
+    if(z/p < CHSQEPS) break;
+    a *= 0.5*nc/(j+1);
+  }
+  p*=exp(-0.5*nc);
+  return p;
+}
+

@@ -1,5 +1,5 @@
 /* rand.h 
-$Id: rand.h,v 1.2 2001/04/16 07:02:22 shimo Exp shimo $
+$Id: rand.h,v 1.3 2001/08/10 05:58:27 shimo Exp shimo $
 */
 double mrand(void);      /* returns random # in [0,1) */
 void smrand(int seed),   /* seeds mrand() */
@@ -19,5 +19,19 @@ double critf(double p, int df1, int df2);
 
 /* misc */
 double dnorm(double x);
-double pnorm(double x);
+double qnorm(double x);
 
+/* recipe */
+double gammln(double xx);
+double gammp(double a, double x);
+double gammq(double a, double x);
+double erfn(double x);
+double erfcn(double x);
+double erfcn2(double x);
+double pnorm(double x);
+double pgamma(double x, double nu);
+double tgamma(double x, double nu);
+double pchisq(double x, double df);
+double tchisq(double x, double df);
+double pchisqnc(double x, double df, double nc);
+double tchisqnc(double x, double df, double nc);
