@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2002-01-15 13:36:15 shimo>
+  Time-stamp: <2002-02-27 23:15:11 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,12 +17,20 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.8 2002/01/10 12:48:00 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.9 2002/01/24 03:04:42 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
+
+void print_real(double x)
+{
+  if(x<100.0 && x>-10.0 && fabs(x)>0.0005) printf(" %6.3f",x);
+  else if(x==0.0) printf(" %6s","0");
+  else if(fabs(x)<0.0005 || x>999999 || x<-99999) printf(" %6.0e",x);
+  else  printf(" %6.0f",x);
+}
 
 int sw_printse=0;
 
@@ -34,9 +42,10 @@ void print_pvname(char *name)
 
 void print_pval(double pv, double se)
 {
-  printf(" %6.3f",pv);
+  print_real(pv);
   if(sw_printse)   printf(" (%5.3f)",se);
 }
+
 
 int *permrev(int *order, int *rev, int n)
 {
@@ -91,7 +100,7 @@ int trc2=0; /* end for aggregate */
 #define BPAUXNUM 0
 #define BAAUXNUM 0
 #define MCAUXNUM 0
-#define AUAUXNUM 6
+#define AUAUXNUM 7
 
 int main(int argc, char** argv)
 {
@@ -103,6 +112,7 @@ int main(int argc, char** argv)
   double **pvmat,**semat,**auxmat;
   int sw_bp,sw_ba,sw_mc,sw_au,fileid,outbit;
   double **outmat;
+  double x;
 
   fnamev=NEW_A(argc-1,char*);
   nfile=0;
@@ -209,7 +219,8 @@ int main(int argc, char** argv)
     }
     if(sw_prt) printf(" |");
     if(sw_verpose && sw_au) {
-      printf(" %6s %6s %2s %6s %6s %6s","pf","rss","df","x","c","th");
+      printf(" %6s %6s %2s %6s %6s %6s %6s %6s","pf","rss","df","x","c",
+	     "th","a","dim");
     }
 
     for(i=0;i<cm;i++) {
@@ -239,9 +250,17 @@ int main(int argc, char** argv)
       }
       if(sw_prt) printf(" |");
       if(sw_verpose && sw_au) {
-	printf(" %6.3f %6.3f %2.0f %6.3f %6.3f %6.3f",
-	       auxmat[ir][0],auxmat[ir][1],auxmat[ir][2],
-	       auxmat[ir][3],auxmat[ir][4],auxmat[ir][5]);
+	print_real(auxmat[ir][0]);     /* pf */
+	print_real(auxmat[ir][1]);     /* rss */
+	printf(" %2.0f",auxmat[ir][2]); /* df */
+	print_real(auxmat[ir][3]);     /* sid */
+	print_real(auxmat[ir][4]);     /* cv */
+	print_real(auxmat[ir][6]);     /* th */
+	if(auxmat[ir][5] != 0.0 && auxmat[ir][4] != 0.0)
+	  x=0.5*(auxmat[ir][5]-1.0)/auxmat[ir][4];
+	else x=0.0;
+	print_real(x);                 /* a */
+	print_real(auxmat[ir][5]);     /* dim */
       } 
     }
 
