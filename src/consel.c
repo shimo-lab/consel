@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-02-28 17:19:24 shimo>
+  Time-stamp: <2002-03-01 14:43:49 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.11 2002/02/20 08:53:20 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.12 2002/02/28 08:21:45 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,7 +126,9 @@ double chidimarg=0.0; /* default dimension */
 int chinumgrid=10; /* number of grids */
 int sw_chidimopt=1; /* optimize dimension */
 int sw_chidimgs=1; /* use golden section search */
-double chieps=1e-10;
+double chieps=1e-50;
+int chiloopmax=50;
+int chibackmax=10;
 double chidimmin=2.0;
 
 /* for multiple rmt */
@@ -319,6 +321,7 @@ int main(int argc, char** argv)
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&chidimarg) != 1)
 	byebye();
+      sw_fitmode=FITMODE_CHI;
       i+=1;
     } else if(streq(argv[i],"--chi_dimmin")) {
       if(i+1>=argc ||
@@ -329,6 +332,7 @@ int main(int argc, char** argv)
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%d",&chinumgrid) != 1)
 	byebye();
+      sw_fitmode=FITMODE_CHI;
       i+=1;
     } else if(streq(argv[i],"--chi_opt")) {
       sw_chidimopt=1; sw_chidimgs=1;
@@ -339,6 +343,11 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"--chi_nogs")) {
       sw_chidimopt=1; sw_chidimgs=0;
       sw_fitmode=FITMODE_CHI;
+    } else if(streq(argv[i],"--chieps")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&chieps) != 1)
+	byebye();
+      i+=1;
     } else if(streq(argv[i],"--ppcoef")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&bapcoef) != 1)
@@ -2267,6 +2276,9 @@ void chidobj0(double *parm, double *diff)
   dfmpridr(parm,diff,chixh1,CHIFUNCP,chiobj0);
 }
 
+#define NEWTON {chidim=PAR2DIM(parm[2]);\
+               dfnmin(parm,2,chieps,chiloopmax,chibackmax,\
+               &loop,&y,&vmat,chimodel, chidmodel, chiddmodel);}
 int chicoef(double *cc, double *rr, double *bb, int kk,
 	    double *parm0, /* set initinal value (size=3) */
 	    double ***vmatp, /* variance ptr (3x3) */
@@ -2301,12 +2313,12 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
   *df=m-CHIFUNCP;
 
   for(i=0;i<3;i++) parm[i]=parm0[i];  
-  chidim=PAR2DIM(parm[2]);
-  dfnmin(parm,2,chieps,&loop,&y,&vmat,chimodel, chidmodel, chiddmodel);
+
+  NEWTON;
   dprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
 	  0,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
 
-  if(sw_chidimopt && (*df)>=1) {
+  if(sw_chidimopt && (*df)>=1 && PAR2DIM(parm0[2])>chidimmin+0.1) {
     (*df)--;
     /* save the parameters */
     ik=chinumgrid+1;
@@ -2318,9 +2330,7 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
     parm2grid=(parm2max-parm2min)/(ik-1);
     for(is=1;is<ik;is++) {
       parm[2]=parm2max-is*parm2grid;
-      chidim=PAR2DIM(parm[2]);
-      dfnmin(parm,2,chieps,&loop,&y,&vmat,
-	     chimodel, chidmodel, chiddmodel);
+      NEWTON;
       ya[is]=y; for(i=0;i<3;i++) parma[is][i]=parm[i]; vmata[is]=vmat;
       if(y<ya[im]) im=is;
       dprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
@@ -2339,9 +2349,7 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
 	  x=x2-GOLDRATIO*(x2-x1);
 	}
 	for(i=0;i<3;i++) parm[i]=parma[im2][i];	parm[2]=x;
-	chidim=PAR2DIM(parm[2]);
-	dfnmin(parm,2,chieps,&loop,&y,&vmat,
-	       chimodel, chidmodel, chiddmodel);
+	NEWTON;
 	dprintf(1,"\n# opt gold=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
 		is,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
 	if(y<ya[im2]){
@@ -2381,9 +2389,9 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
   }
 
   *lrt=y; *vmatp=vmat; for(i=0;i<3;i++) parm0[i]=parm[i]; 
-
   return 0;
 }
+#undef NEWTON
 
 int chicalcpval(double *cnts, double *rr, double *bb, int kk,
 		double *pv, double *se,    /* au */
@@ -2420,6 +2428,7 @@ int chicalcpval(double *cnts, double *rr, double *bb, int kk,
   if(x<0.0) { warning("negative variance of au in chicalcpval"); x=0.0; }
   *se=sqrt(x);
 
+  chidim=PAR2DIM(parm[2]);
   *pv0=chiobj0(parm); chidobj0(parm,diff);
   x=0.0; 
   for(i=0;i<CHIFUNCP;i++) for(j=0;j<CHIFUNCP;j++)

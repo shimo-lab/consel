@@ -1,8 +1,8 @@
 /*
   opt.h
-  Time-stamp: <2002-02-28 16:47:56 shimo>
+  Time-stamp: <2002-03-01 13:32:40 shimo>
 
-  $Id$
+  $Id: opt.h,v 1.1 2002/02/28 07:55:49 shimo Exp shimo $
 */
 
 
@@ -24,7 +24,8 @@ void dfmpridr(double parm[], double diff[], double xh[],
 void ddfsimple(double parm[], double **diff, double xh[],
 	       int n, double(*func)(double []));
 
-void dfnmin(double p[], int n, double gtol, int *iter, double *fret,
+void dfnmin(double p[], int n, double gtol, int itmax, int maxback,
+	    int *iter, double *fret,
 	    double ***hesinv,
 	    double(*func)(double []), void (*dfunc)(double [], double []),
 	    void (*ddfunc)(double [], double **));

@@ -1,7 +1,7 @@
 /*
   opt.c
 
-  Time-stamp: <2002-02-28 16:56:29 shimo>
+  Time-stamp: <2002-03-01 13:32:17 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -15,7 +15,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: opt.c,v 1.1 2002/02/28 07:56:59 shimo Exp shimo $";
 
 /*
   INVERSION OF MATRIX ON LU DECOMPOSITION
@@ -308,10 +308,8 @@ void ddfsimple(double parm[], double **diff, double xh[],
 }
 #undef SETPARM
 
-
-#define ITMAX 50 /* Maximum allowed number of iterations. */
-#define MAXBACK 10
-void dfnmin(double p[], int n, double gtol, int *iter, double *fret,
+void dfnmin(double p[], int n, double gtol, int itmax, int maxback,
+	    int *iter, double *fret,
 	    double ***hesinv,
 	    double(*func)(double []), void (*dfunc)(double [], double []),
 	    void (*ddfunc)(double [], double **))
@@ -323,7 +321,7 @@ void dfnmin(double p[], int n, double gtol, int *iter, double *fret,
   g=new_vec(n); xi=new_vec(n); pnew=new_vec(n);  
   A=new_mat(n,n); Ainv=new_mat(n,n);
   fp=(*func)(p); /* function */      
-  for(loop=1;loop<=ITMAX;loop++) {
+  for(loop=1;loop<=itmax;loop++) {
     (*dfunc)(p,g); /* derivative */
     (*ddfunc)(p,A); /* second derivative */
     luinverse(A,Ainv,n);
@@ -335,14 +333,14 @@ void dfnmin(double p[], int n, double gtol, int *iter, double *fret,
       sum+=g[i]*x; xi[i] = -x;
     }
     if(sum>=0.0) lam=1.0; else lam=-1.0;
-    for(k=0;k<MAXBACK;k++) {
+    for(k=0;k<maxback;k++) {
       for(i=0;i<n;i++) pnew[i]=p[i]+lam*xi[i];
       fnew=(*func)(pnew); /* function */      
       dprintf(3,"\n### dfnmin: lam=%g fnew=%g fp=%g",lam,fnew,fp);
       if(fnew < fp) break;
       lam *= 0.1;
     }
-    if(k==MAXBACK) break;
+    if(k==maxback) break;
     fp=fnew;
     for(i=0;i<n;i++) p[i]=pnew[i];
     dprintf(3,"\n### dfnmin: loop=%d sum=%g fp=%g",loop,sum,fp);
@@ -355,6 +353,4 @@ void dfnmin(double p[], int n, double gtol, int *iter, double *fret,
 
   free_mat(A); free_vec(g); free_vec(xi); free_vec(pnew);
 }
-#undef ITMAX
-#undef MAXBACK
 
