@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2001-04-10 14:11:06 shimo>
-  $Id$
+  Time-stamp: <2001-04-12 08:25:22 shimo>
+  $Id: misc.h,v 1.1 2001/04/10 05:15:20 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -28,9 +28,17 @@ void *myrealloc(void *old, size_t size);
 #define FREE myfree
 #define MALLOC myalloc
 #define REALLOC myrealloc
-double *new_buf(int m);
-double *renew_buf(double *A, int m);
-void free_buf(double *buf);
+#define NEW_A(m,t) (t*)MALLOC(m*sizeof(t))
+#define RENEW_A(A,m,t) (t*)REALLOC(A,m*sizeof(t))
+#define FREE_A(A,t) FREE(A);
+#define new_vec(m) NEW_A(m,double)
+#define new_ivec(m) NEW_A(m,int)
+#define renew_vec(A,m) RENEW_A(A,m,double)
+#define renew_ivec(A,m) RENEW_A(A,m,int)
+#define free_vec(A) FREE_A(A,double)
+#define free_ivec(A) FREE_A(A,int)
+
+/* matrix */
 double **renew_mat(double **old, int m, int n);
 double **new_mat(int m, int n);
 void free_mat(double **buf);
@@ -39,6 +47,7 @@ void free_mat(double **buf);
 int fskipjunk(FILE *fp);
 #define skipjunk() fskipjunk(STDIN)
 int streq(char const *s1,char const *s2);
+char *mstrcat(char *str1, char *str2);
 int fread_i(FILE *fp);
 #define read_i() fread_i(STDIN)
 double fread_d(FILE *fp);
@@ -61,11 +70,13 @@ int fwrite_mat(FILE *fp, double **A, int m, int n);
 /* binary read/write */
 int fread_bi(FILE *fp);
 int fread_bd(FILE *fp);
+int *fread_bivec(FILE *fp, int *mp);
 double *fread_bvec(FILE *fp, int *mp);
 double **fread_bmat(FILE *fp, int *mp, int *np);
 double **freread_bmat(FILE *fp, int *mp, int *np, double **old);
 int fwrite_bi(FILE *fp, int x);
 int fwrite_bd(FILE *fp, double x);
+int fwrite_bivec(FILE *fp, int *A, int m);
 int fwrite_bvec(FILE *fp, double *A, int m);
 int fwrite_bmat(FILE *fp, double **A, int m, int n);
 
