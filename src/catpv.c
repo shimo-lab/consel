@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2002-04-18 13:07:03 shimo>
+  Time-stamp: <2002-08-20 22:53:02 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.10 2002/02/28 07:58:10 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.11 2002/04/18 04:21:35 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -56,7 +56,7 @@ int *permrev(int *order, int *rev, int n)
   for(i=0;i<n;i++) {rev[i]=i; sav[i]=order[i];}
   isort(order,rev,n);
   for(i=0;i<n;i++) {
-    if(order[i]!=i) warning("invalid perm vector");
+    /*    if(order[i]!=i) warning("invalid perm vector"); */
     order[i]=sav[i];
   }
   return rev;
@@ -72,6 +72,7 @@ int sw_cat=0;
 int sw_prt=1;
 int sw_sort=0;
 int sw_cong=0;
+int labeladd=1;
 
 char *fname_cat=NULL; char *fext_cat=".out";
 char *fname_cong=NULL; char *fext_cong=".pv";
@@ -126,6 +127,11 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"-d")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%d",&debugmode) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-l")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&labeladd) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"-t")) {
@@ -230,7 +236,7 @@ int main(int argc, char** argv)
 
     for(i=0;i<cm;i++) {
       if(sw_sort) ir=revordv[i]; else ir=i;
-      if(sw_prt) printf("\n# %4d %4d %6.1f",ir+1,orderv[ir]+1,obsvec[ir]);
+      if(sw_prt) printf("\n# %4d %4d %6.1f",ir+1,orderv[ir]+labeladd,obsvec[ir]);
       j=0;
       if(sw_au) {
 	j=jau;
@@ -260,12 +266,14 @@ int main(int argc, char** argv)
 	printf(" %2.0f",auxmat[ir][2]); /* df */
 	print_real(auxmat[ir][3]);     /* sid */
 	print_real(auxmat[ir][4]);     /* cv */
-	print_real(auxmat[ir][6]);     /* th */
-	if(auxmat[ir][5] != 0.0 && auxmat[ir][4] != 0.0)
-	  x=0.5*(auxmat[ir][5]-1.0)/auxmat[ir][4];
-	else x=0.0;
-	print_real(x);                 /* a */
-	print_real(auxmat[ir][5]);     /* dim */
+	print_real(auxmat[ir][5]);     /* th */
+	if(auxnum>6) {
+	  if(auxmat[ir][6] != 0.0 && auxmat[ir][4] != 0.0)
+	    x=0.5*(auxmat[ir][6]-1.0)/auxmat[ir][4];
+	  else x=0.0;
+	  print_real(x);                 /* a */
+	  print_real(auxmat[ir][6]);     /* dim */
+	}
       } 
     }
 

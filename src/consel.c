@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-04-18 23:59:15 shimo>
+  Time-stamp: <2002-08-20 22:49:51 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.14 2002/03/03 14:58:44 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.15 2002/04/18 16:26:51 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1449,8 +1449,8 @@ int write_pv(int sw_bp, int sw_ba, int sw_mc, int sw_au)
       auxmat[i][j]=dfvec[i]; j++;  /* df */
       auxmat[i][j]=betamat[i][0]; j++; /* signed distance */
       auxmat[i][j]=betamat[i][1]; j++; /* curvature */
-      auxmat[i][j]=betamat[i][2]; j++; /* dim */
       auxmat[i][j]=thvec[i]; j++; /* threshold */
+      auxmat[i][j]=betamat[i][2]; j++; /* dim */
     }
   }
 
