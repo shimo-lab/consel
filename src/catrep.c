@@ -2,7 +2,7 @@
 
   catrep.c : join and select rep files
 
-  Time-stamp: <2001-05-05 23:22:40 shimo>
+  Time-stamp: <2001-05-11 08:08:26 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -10,7 +10,7 @@
   typical usage:
   # foo1.rep foo2.rep -> foo.rep
   catrep foo1 foo2 foo
-  # selecting replicates with scales in vt file
+  # selecting replicates with scales in pa file
   catrep -p new.pa fooin fooout
 
 */
@@ -19,7 +19,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catrep.c,v 1.1 2001/05/05 09:12:00 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catrep.c,v 1.2 2001/05/05 14:25:43 shimo Exp shimo $";
 
 typedef struct {
   int kk; /* number of scales */
@@ -59,6 +59,7 @@ double rreps=0.5e-2;
 repstat **repins=NULL;
 int nrepins=0;
 repstat reppar, repout, repin;
+int sw_asciiout=0;
 
 int main(int argc, char** argv)
 {
@@ -96,6 +97,8 @@ int main(int argc, char** argv)
       mode_nop=1;
     } else if(streq(argv[i],"-m")) {
       mode_rmt=1;
+    } else if(streq(argv[i],"-a")) {
+      sw_asciiout=1;
     } else if(streq(argv[i],"--no_sort")) {
       sw_sort=0;
     } else byebye();
@@ -254,15 +257,25 @@ int main(int argc, char** argv)
   fname_out = mstrcat(fname_out,mode_rmt?fext_rmt:fext_rep);
   if((fp=fopen(fname_out,"w"))==NULL) error("cant open %s",fname_out);
   printf("\n# writing %s.",fname_out);
-  if(!mode_rmt) fwrite_bivec(fp,repout.ord,repout.cm);
-  fwrite_bvec(fp,repout.obs,repout.cm);
-  fwrite_bvec(fp,repout.rr,repout.kk);
-  fwrite_bivec(fp,repout.bb,repout.kk);
-  fwrite_bi(fp,repout.kk);
-  for(i=0;i<repout.kk;i++) {
-    fwrite_bmat(fp,repout.mats[i],repout.cm,repout.bb[i]); putdot();
+  if(sw_asciiout) {
+    if(!mode_rmt) fwrite_ivec(fp,repout.ord,repout.cm);
+    fwrite_vec(fp,repout.obs,repout.cm);
+    fwrite_vec(fp,repout.rr,repout.kk);
+    fwrite_ivec(fp,repout.bb,repout.kk);
+    fwrite_i(fp,repout.kk);
+    for(i=0;i<repout.kk;i++) {
+      fwrite_mat(fp,repout.mats[i],repout.cm,repout.bb[i]); putdot();
+    }
+  } else {
+    if(!mode_rmt) fwrite_bivec(fp,repout.ord,repout.cm);
+    fwrite_bvec(fp,repout.obs,repout.cm);
+    fwrite_bvec(fp,repout.rr,repout.kk);
+    fwrite_bivec(fp,repout.bb,repout.kk);
+    fwrite_bi(fp,repout.kk);
+    for(i=0;i<repout.kk;i++) {
+      fwrite_bmat(fp,repout.mats[i],repout.cm,repout.bb[i]); putdot();
+    }
   }
-
   printf("\n# exit normally\n");
   exit(0);
 }
