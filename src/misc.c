@@ -2,8 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2001-04-10 14:11:14 shimo>
-  $Id$
+  Time-stamp: <2001-04-12 08:24:47 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -22,6 +21,7 @@
 #include <sys/time.h>
 #include "misc.h"
 
+static const char rcsid[] = "$Id$";
 
 /*
   error message handling
@@ -42,7 +42,7 @@ void error(char *fmt, ...)
 {
   va_list args;
   va_start(args,fmt);
-  printf("#! Terminated: ");
+  printf("\n#! Terminated: ");
   vprintf(fmt, args);
   printf(".\n");
   va_end(args);
@@ -53,7 +53,7 @@ void warning(char *fmt, ...)
 {
   va_list args;
   va_start(args,fmt);
-  printf("#! Warning: ");
+  printf("\n#! Warning: ");
   vprintf(fmt, args);
   printf(".\n");
   va_end(args);
@@ -112,30 +112,14 @@ void *myrealloc(void *old, size_t size)
 }
 
 /*
-  array and matrix
+  matrix
 */
-
-double *new_buf(int m)
-{
-  return (double*) MALLOC(m*sizeof(double));
-}
-
-double *renew_buf(double *A, int m)
-{
-  return (double*) REALLOC(A, m*sizeof(double));
-}
-
-void free_buf(double *buf)
-{
-  FREE(buf);
-}
-
 double **new_mat(int m, int n)
 {
   double **base,*xp;
   int i;
 
-  xp = new_buf(m*n);
+  xp = new_vec(m*n);
   base = (double **)MALLOC(sizeof(double*) * m);
   for(i=0;i<m;i++) base[i] = xp + i*n;
 
@@ -198,6 +182,19 @@ int streq(char const *s1,char const *s2)
     }
     return 0;
 }
+/*
+  catenate string with memory allocation
+*/
+char *mstrcat(char *str1, char *str2)
+{
+  int len1,len2;
+  char *str;
+  len1 = strlen(str1); len2 = strlen(str2);
+  str = (char *)MALLOC(len1+len2+1);
+  strcpy(str,str1);
+  strcpy(str+len1,str2);
+  return str;
+}
 
 /*
   ascii read/write
@@ -226,9 +223,9 @@ double *fread_vec(FILE *fp, int *mp)
 
   m=fread_i(fp); /* number of items */
   if(*mp>0 && *mp != m) error("size mismatch in vec");
-  A = new_buf(m);
+  A = new_vec(m);
 
-  for(i=0;i<m;i++) A[i]=read_d();
+  for(i=0;i<m;i++) A[i]=fread_d(fp);
 
   *mp = m;
   return A;
@@ -241,9 +238,9 @@ int *fread_ivec(FILE *fp, int *mp)
 
   m=fread_i(fp); /* number of items */
   if(*mp>0 && *mp != m) error("size mismatch in ivec");
-  A = (int*) MALLOC(sizeof(int)*m);
+  A = new_ivec(m);
 
-  for(i=0;i<m;i++) A[i]=read_i();
+  for(i=0;i<m;i++) A[i]=fread_i(fp);
 
   *mp = m;
   return A;
@@ -365,15 +362,28 @@ int fread_bd(FILE *fp)
   return x;
 }
 
+int *fread_bivec(FILE *fp, int *mp)
+{
+  int m;
+  int *A;
+
+  m=fread_bi(fp); /* number of itmes */
+  if(*mp>0 && *mp != m) error("size mismatch in bivec");
+  A = new_ivec(m);
+  if(fread(A,sizeof(int),m,fp)!=m) error("cant read bivec");
+  *mp = m;
+  return A;
+}
+
 double *fread_bvec(FILE *fp, int *mp)
 {
   int m;
   double *A;
 
   m=fread_bi(fp); /* number of itmes */
-  if(*mp>0 && *mp != m) error("size mismatch in vec");
-  A = new_buf(m);
-  if(fread(A,sizeof(double),m,fp)!=m) error("cant read binary vec");
+  if(*mp>0 && *mp != m) error("size mismatch in bvec");
+  A = new_vec(m);
+  if(fread(A,sizeof(double),m,fp)!=m) error("cant read bvec");
   *mp = m;
   return A;
 }
@@ -385,10 +395,10 @@ double **fread_bmat(FILE *fp, int *mp, int *np)
 
   m=fread_bi(fp); /* number of items (rows) */
   n=fread_bi(fp); /* number of samples (columns) */
-  if(*mp>0 && *mp != m) error("size of rows mismatch in binary mat");
-  if(*np>0 && *np != n) error("size of columns mismatch in binary mat");
+  if(*mp>0 && *mp != m) error("size of rows mismatch in bmat");
+  if(*np>0 && *np != n) error("size of columns mismatch in bmat");
   A = new_mat(m,n);
-  if(fread(A[0],sizeof(double),m*n,fp)!=(m*n)) error("cant read binary mat");
+  if(fread(A[0],sizeof(double),m*n,fp)!=(m*n)) error("cant read bmat");
   *mp = m; *np = n;
   return A;
 }
@@ -400,10 +410,10 @@ double **freread_bmat(FILE *fp, int *mp, int *np, double **old)
 
   m=fread_bi(fp); /* number of items (rows) */
   n=fread_bi(fp); /* number of samples (columns) */
-  if(*mp>0 && *mp != m) error("size of rows mismatch in binary mat");
-  if(*np>0 && *np != n) error("size of columns mismatch in binary mat");
+  if(*mp>0 && *mp != m) error("size of rows mismatch in bmat");
+  if(*np>0 && *np != n) error("size of columns mismatch in bmat");
   A = renew_mat(old,m,n);
-  if(fread(A[0],sizeof(double),m*n,fp)!=(m*n)) error("cant read binary mat");
+  if(fread(A[0],sizeof(double),m*n,fp)!=(m*n)) error("cant read bmat");
   *mp = m; *np = n;
   return A;
 }
@@ -420,10 +430,17 @@ int fwrite_bd(FILE *fp, double x)
   return 0;
 }
 
+int fwrite_bivec(FILE *fp, int *A, int m)
+{
+  fwrite_bi(fp,m);
+  if(fwrite(A,sizeof(int),m,fp)!=m) error("cant write bivec");
+  return 0;
+}
+
 int fwrite_bvec(FILE *fp, double *A, int m)
 {
   fwrite_bi(fp,m);
-  if(fwrite(A,sizeof(double),m,fp)!=m) error("cant write binary vec");
+  if(fwrite(A,sizeof(double),m,fp)!=m) error("cant write bvec");
   return 0;
 }
 
@@ -431,10 +448,9 @@ int fwrite_bmat(FILE *fp, double **A, int m, int n)
 {
   fwrite_bi(fp,m);
   fwrite_bi(fp,n);
-  if(fwrite(A[0],sizeof(double),m*n,fp)!=m) error("cant write binary mat");
+  if(fwrite(A[0],sizeof(double),m*n,fp)!=(m*n)) error("cant write bmat");
   return 0;
 }
-
 
 /*
   symmetrize a matrix
