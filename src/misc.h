@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2001-06-23 13:13:02 shimo>
-  $Id: misc.h,v 1.5 2001/05/29 06:30:02 shimo Exp shimo $
+  Time-stamp: <2002-02-10 18:23:31 shimo>
+  $Id: misc.h,v 1.6 2001/08/10 05:57:20 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -58,10 +58,14 @@ int fread_i(FILE *fp);
 #define read_i() fread_i(STDIN)
 double fread_d(FILE *fp);
 #define read_d() fread_d(STDIN)
+char *fread_s(FILE *fp);
+#define read_s() fread_s(STDIN)
 double *fread_vec(FILE *fp, int *mp);
 #define read_vec(mp) fread_vec(STDIN,mp)
 int *fread_ivec(FILE *fp, int *mp);
 #define read_ivec(mp) fread_ivec(STDIN,mp)
+char **fread_svec(FILE *fp, int *mp);
+#define read_svec(mp) fread_svec(STDIN,mp)
 double **fread_mat(FILE *fp, int *mp, int *np);
 double **fread_lmat(FILE *fp, int *mp, int *np);
 #define read_mat(mp,np) fread_mat(STDIN,mp,np)
@@ -108,4 +112,4 @@ double *lsfit(double **X, double *Y, double *W,
 int sort_vec(double *v, int n);
 int argmin_vec(double *vec, int n);
 int argmax_vec(double *vec, int n);
-
+double fsquare(double x);
