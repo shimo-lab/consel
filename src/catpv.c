@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2002-01-10 21:39:18 shimo>
+  Time-stamp: <2002-01-15 13:36:15 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.7 2001/12/10 05:52:47 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.8 2002/01/10 12:48:00 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -141,7 +141,7 @@ int main(int argc, char** argv)
       sw_pau=0;
     } else if(streq(argv[i],"--no_bp")) {
       sw_pbp=0;
-    } else if(streq(argv[i],"--no_ba")) {
+    } else if(streq(argv[i],"--no_pp")) {
       sw_pba=0;
     } else if(streq(argv[i],"--no_sh")) {
       sw_pmc=0;
@@ -199,7 +199,7 @@ int main(int argc, char** argv)
       print_pvname("bp");
     }
     if(sw_ba) {
-      print_pvname("ba");
+      print_pvname("pp");
     }
     if(sw_mc) {
       print_pvname("kh");
@@ -267,7 +267,7 @@ int main(int argc, char** argv)
     printf("\n# np:  the naive p-value");
     printf("\n# --- p-values using the unscaled bootstrap ---");
     printf("\n# bp:  the bootstrap probability");
-    printf("\n# ba:  the Bayesian posterior");
+    printf("\n# pp:  the Bayesian posterior probability");
     printf("\n# kh:  the Kishino-Hasegawa test");
     printf("\n# sh:  the Shimodaira-Hasegawa test");
     printf("\n# wkh: the weighted KH-test");
@@ -285,7 +285,7 @@ int main(int argc, char** argv)
     printf("\n# -e: show the standard errors");
     printf("\n# --no_au: suppress au test");
     printf("\n# --no_bp: suppress bp test");
-    printf("\n# --no_ba: suppress ba test");
+    printf("\n# --no_pp: suppress pp test");
     printf("\n# --no_sh: suppress sh test");
     printf("\n# --no_print: suppress printing");
     printf("\n# -o file: aggregating output");
