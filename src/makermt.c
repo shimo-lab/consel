@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-04-16 15:02:30 shimo>
+  Time-stamp: <2001-04-19 09:22:33 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.2 2001/04/12 05:43:30 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.3 2001/04/16 07:01:51 shimo Exp shimo $";
 
 
 /*
@@ -37,12 +37,13 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 		   ) {
   int i,j,k;
   double x,*wv,*rv;
+  double r;
 
   wv=new_vec(n); rv=new_vec(bn);
   if(repmat==NULL) repmat=new_mat(m,bb);
+  r=(double)bn/(double)n;
 
   for(i=0;i<bb;i++) {
-
     /* first, get wv=weight vector */
     mrandlist(rv,bn);
     for(j=0;j<n;j++) wv[j]=0.0;
@@ -60,7 +61,7 @@ double **scaleboot(double **datmat, /* m x n data matrix */
     for(k=0;k<m;k++) {
       x=0.0;
       for(j=0;j<n;j++) x+=wv[j]*datmat[k][j];
-      repmat[k][i]=x;
+      repmat[k][i]=x/r;
     }
   }
 
@@ -70,10 +71,8 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 
 
 
-void byebye()
-{
-  error("error in command line");
-}
+void putdot() {putchar('.'); fflush(STDOUT);}
+void byebye() {error("error in command line");}
 
 int seed=123;
 char *fname_pa = NULL;
@@ -140,8 +139,8 @@ int main(int argc, char** argv)
     if((fp=fopen(fname_pa,"r"))==NULL) error("cant open %s",fname_pa);
     printf("\n# reading %s.",fname_pa);
     kk=0;
-    rr=fread_vec(fp,&kk); putchar('.');
-    bb=fread_ivec(fp,&kk); putchar('.');
+    rr=fread_vec(fp,&kk); putdot();
+    bb=fread_ivec(fp,&kk); putdot();
     fclose(fp);
   } else {
     kk=kk0; rr=rr0; bb=bb0; 
@@ -157,11 +156,11 @@ int main(int argc, char** argv)
     fname_mt = mstrcat(fname_mt,fext_mt);
     if((fp=fopen(fname_mt,"r"))==NULL) error("cant open %s",fname_mt);
     printf("\n# reading %s.",fname_mt);
-    datmat=fread_mat(fp,&mm,&nn); putchar('.');
+    datmat=fread_mat(fp,&mm,&nn); putdot();
     fclose(fp);
   } else {
     printf("\n# reading from stdin.");
-    datmat=fread_mat(STDIN,&mm,&nn); putchar('.');
+    datmat=fread_mat(STDIN,&mm,&nn); putdot();
   }
   printf("\n# M:%d N:%d",mm,nn);
 
@@ -186,6 +185,7 @@ int main(int argc, char** argv)
     bn[i]=(int)(rr[i]*nn); /* sample size for bootstrap */
     rr[i]=(double)bn[i]/nn; /* recalculate rr for integer adjustment */
     scaleboot(datmat,repmats[i],mm,nn,bn[i],bb[i]);
+    putdot();
   }
   t1=get_time();
   printf("\n# time elapsed for bootstrap t=%g sec",t1-t0);
@@ -195,7 +195,7 @@ int main(int argc, char** argv)
     fname_vt = mstrcat(fname_vt,fext_vt);
     if((fp=fopen(fname_vt,"w"))==NULL) error("cant open %s",fname_vt);
     printf("\n# writing %s.",fname_vt);
-    fwrite_vec(fp,datvec,mm); putchar('.');
+    fwrite_vec(fp,datvec,mm); putdot();
     fclose(fp);
   }
   if(fname_rmt!=NULL) {
@@ -208,7 +208,7 @@ int main(int argc, char** argv)
     fwrite_bi(fp,kk);
     for(i=0;i<kk;i++) {
       fwrite_bmat(fp,repmats[i],mm,bb[i]);
-      putchar('.');
+      putdot();
     }
     fclose(fp);
   } else {
