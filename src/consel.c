@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-01-10 22:19:39 shimo>
+  Time-stamp: <2002-01-15 13:38:39 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.8 2002/01/10 12:46:57 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.9 2002/01/10 13:20:57 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -198,7 +198,7 @@ int sw_doau=1; /* dont skip au-tests */
 int sw_dobp=1; /* dont skip bp-tests */
 int sw_nosort=0; /* dont sort the items */
 int sw_lmat=0; /* large mat */
-int sw_mle=0; /* use mle */
+int sw_mle=1; /* use mle DEFAULT*/
 int sw_fastrep=0; /* rescaling from r=1 */
 int find_i0();
 
@@ -269,7 +269,7 @@ int main(int argc, char** argv)
       sw_nosort=1;
     } else if(streq(argv[i],"--no_bp")) {
       sw_dobp=0;
-    } else if(streq(argv[i],"--no_ba")) {
+    } else if(streq(argv[i],"--no_pp")) {
       sw_doba=0;
     } else if(streq(argv[i],"--no_sh")) {
       sw_domc=0;
@@ -289,7 +289,7 @@ int main(int argc, char** argv)
 	 sscanf(argv[i+1],"%lf",&kappa) != 1)
 	byebye();
       i+=1;
-    } else if(streq(argv[i],"--bap")) {
+    } else if(streq(argv[i],"--ppcoef")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&bapcoef) != 1)
 	byebye();
@@ -326,8 +326,10 @@ int main(int argc, char** argv)
       i+=1;
     } else if(streq(argv[i],"-L")) {
       sw_lmat=1;
-    } else if(streq(argv[i],"-m")) {
+    } else if(streq(argv[i],"--mle")) {
       sw_mle=1;
+    } else if(streq(argv[i],"--wls")) {
+      sw_mle=0;
     } else if(streq(argv[i],"-f")) {
       sw_fastrep=1;
     } else if(streq(argv[i],"--mleeps")) {
