@@ -12,11 +12,13 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: randrep.c,v 1.1 2001/05/16 22:14:57 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -28,7 +30,7 @@ char *fnamenum(char *basename, int num, int max)
   char *buf;
   if(basename==NULL) return NULL;
   max--; if(max<1) max=1;
-  len1=floor(log10((double)max)+2.000001); len2=strlen(basename);
+  len1=(int)floor(log10((double)max)+2.000001); len2=strlen(basename);
   len=len1+len2+10;  buf=NEW_A(len,char);
   sprintf(buf,"%s%0*d",basename,len1,num);
   return buf;
@@ -184,7 +186,7 @@ int do_repchi()
   deg=0; for(i=0;i<cm;i++) {
     if((degvec[i] < 0.99) || fabs(degvec[i]-floor(degvec[i]+0.5))>0.01)
       error("degrees of freedom must be positive integer");
-    if(degvec[i]>deg) deg=degvec[i];
+    if(degvec[i]>deg) deg=(int)degvec[i];
   }
   xbuf=new_vec(deg+1); obsvec=new_vec(cm);
   statmats=NEW_A(kk,double**);
@@ -199,7 +201,7 @@ int do_repchi()
   t0=get_time();
   for(irep=0;irep<num_repeat;irep++) {
     for(i=0;i<cm;i++) {
-      deg=degvec[i]; nc=ncvec[i]; sg=(nc>=0)?1.0:-1.0;
+      deg=(int)degvec[i]; nc=ncvec[i]; sg=(nc>=0)?1.0:-1.0;
       for(j=0;j<deg;j++) xbuf[j]=flucscale*rnorm();
       xbuf[0]+=nc;
       x=0.0; for(j=0;j<deg;j++) x+=xbuf[j]*xbuf[j];

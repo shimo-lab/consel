@@ -18,11 +18,12 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "misc.h"
 #include "rand.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: catmt.c,v 1.1 2001/05/16 22:18:30 shimo Exp shimo $";
 
 typedef struct {
   int m;

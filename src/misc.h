@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2001-05-03 16:20:03 shimo>
-  $Id: misc.h,v 1.3 2001/04/16 07:00:45 shimo Exp shimo $
+  Time-stamp: <2001-05-29 12:11:23 shimo>
+  $Id: misc.h,v 1.4 2001/05/05 09:05:22 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -47,6 +47,9 @@ void free_mat(double **buf);
 int fskipjunk(FILE *fp);
 #define skipjunk() fskipjunk(STDIN)
 int streq(char const *s1,char const *s2);
+int chkext(char *name, char *ext);
+int chkaxt(char *name);
+char *rmvaxt(char *name);
 char *mstrcat(char *str1, char *str2);
 FILE *openfp(char *name, char *ext, char *mode, char **fnamep);
 int fread_i(FILE *fp);
@@ -74,7 +77,7 @@ int fwrite_mat(FILE *fp, double **A, int m, int n);
 
 /* binary read/write */
 int fread_bi(FILE *fp);
-int fread_bd(FILE *fp);
+double fread_bd(FILE *fp);
 int *fread_bivec(FILE *fp, int *mp);
 double *fread_bvec(FILE *fp, int *mp);
 double **fread_bmat(FILE *fp, int *mp, int *np);

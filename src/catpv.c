@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2001-05-15 07:51:47 shimo>
+  Time-stamp: <2001-05-25 19:04:14 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.2 2001/05/05 09:08:59 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.3 2001/05/16 22:15:48 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -167,9 +167,9 @@ int main(int argc, char** argv)
     if(sw_mc) {
       print_pvname("bp0");
       print_pvname("kh");
-      print_pvname("mc");
+      print_pvname("sh");
       print_pvname("wkh");
-      print_pvname("wmc");
+      print_pvname("wsh");
     }
     if(sw_prt) printf(" |");
     if(sw_verpose && sw_au) {

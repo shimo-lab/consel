@@ -16,10 +16,11 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catrep.c,v 1.2 2001/05/05 14:25:43 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catrep.c,v 1.3 2001/05/16 22:17:54 shimo Exp shimo $";
 
 typedef struct {
   int kk; /* number of scales */

@@ -2,18 +2,18 @@
 
   tree.c: tree handling routines
 
-  Time-stamp: <2001-04-25 15:48:17 shimo>
+  Time-stamp: <2001-05-29 11:01:06 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
 
 */
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: tree.c,v 1.1 2001/05/05 09:06:39 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <ctype.h>
-#include <strings.h>
+#include <string.h>
 #include "misc.h"
 #include "tree.h"
 
