@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2002-02-27 23:15:11 shimo>
+  Time-stamp: <2002-04-18 13:07:03 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.9 2002/01/24 03:04:42 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.10 2002/02/28 07:58:10 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -71,9 +71,10 @@ int sw_pmc=1;
 int sw_cat=0;
 int sw_prt=1;
 int sw_sort=0;
+int sw_cong=0;
 
-char *fname_cat=NULL;
-char *fext_cat=".out";
+char *fname_cat=NULL; char *fext_cat=".out";
+char *fname_cong=NULL; char *fext_cong=".pv";
 
 double ***pvmats, ***semats, ***auxmats;
 double **obsvecs;
@@ -110,9 +111,10 @@ int main(int argc, char** argv)
   char **fnamev,*cbuf;
   int *orderv; double *obsvec; int *revordv=NULL;
   double **pvmat,**semat,**auxmat;
+  double **pvmat2;
   int sw_bp,sw_ba,sw_mc,sw_au,fileid,outbit;
   double **outmat;
-  double x;
+  double x,y,z;
 
   fnamev=NEW_A(argc-1,char*);
   nfile=0;
@@ -139,6 +141,9 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"-o")) {
       sw_cat=1;
       if(i+1<argc) {fname_cat=argv[i+1]; i++;}
+    } else if(streq(argv[i],"-c")) {
+      sw_cong=1;
+      if(i+1<argc) {fname_cong=argv[i+1]; i++;}
     } else if(streq(argv[i],"-s")) {
       sw_sort=1;
     } else if(streq(argv[i],"-e")) {
@@ -165,7 +170,7 @@ int main(int argc, char** argv)
     byebye();
   }
 
-  if(sw_cat) {
+  if(sw_cat||sw_cong) {
     pvmats=NEW_A(nfile,double**);
     semats=NEW_A(nfile,double**);
     auxmats=NEW_A(nfile,double**);
@@ -264,7 +269,7 @@ int main(int argc, char** argv)
       } 
     }
 
-    if(sw_cat){ /* saving the file */
+    if(sw_cat||sw_cong){ /* saving the file */
       pvmats[ifile]=pvmat;  semats[ifile]=semat;
       auxmats[ifile]=auxmat; obsvecs[ifile]=obsvec;
       revords[ifile]=revordv; free_ivec(orderv);
@@ -308,13 +313,15 @@ int main(int argc, char** argv)
     printf("\n# --no_sh: suppress sh test");
     printf("\n# --no_print: suppress printing");
     printf("\n# -o file: aggregating output");
+    printf("\n# -c file: testing congruence");
     printf("\n");
   }
 
+  if(trc1>0) trc1--; if(trc1>=cm0) trc1=cm0-1;
+  if(!trc) trc=cm0;
+  trc2=trc1+trc-1; if(trc2>=cm0) trc2=cm0-1;
+
   if(sw_cat) { /* aggregating the results */
-    if(trc1>0) trc1--; if(trc1>=cm0) trc1=cm0-1;
-    if(!trc) trc=cm0;
-    trc2=trc1+trc-1; if(trc2>=cm0) trc2=cm0-1;
     printf("\n# aggregating from item %d to item %d",trc1+1,trc2+1);
 
     if(fname_cat) {
@@ -334,11 +341,82 @@ int main(int argc, char** argv)
 	for(j=0;j<auxnum;j++) outmat[k++][ifile]=auxmats[ifile][ir][j];
 	outmat[k++][ifile]=obsvecs[ifile][ir];
       }
-      fwrite_mat(fp,outmat,pvnum*2+auxnum+1,nfile); putdot();
+      fwrite_mat(fp,outmat,pvnum*2+auxnum+1,nfile); 
+      if(fname_cat) putdot();
     }
     if(fname_cat) {fclose(fp); FREE(cbuf);}
   }
-  printf("\n");
 
+  if(sw_cong) { /* congruence */
+    cm=trc2-trc1+2;
+    pvmat=new_mat(cm,pvnum);
+    pvmat2=new_mat(cm,pvnum);
+    semat=new_mat(cm,pvnum);
+    auxmat=new_mat(cm,auxnum);
+    orderv=new_ivec(cm);
+    obsvec=new_vec(cm);
+    
+    /* calculating p-value */
+    for(j=0;j<pvnum;j++) {
+      z=0.0;
+      for(i=0;i<cm-1;i++) {
+	y=1.00;
+	for(ifile=0;ifile<nfile;ifile++) {
+	  ir=revords[ifile][i+trc1]; 
+	  x=pvmats[ifile][ir][j];
+	  if(x<y) y=x; /* y=min(x) */
+	}
+	pvmat[i][j]=y;
+	if(y>z) z=y; /* z=max(y) */
+      }
+      pvmat[i][j]=z;
+    }
+
+    /* calculating log-likelihood */
+    for(i=0;i<cm-1;i++) {
+      y=0.0;
+      for(ifile=0;ifile<nfile;ifile++) {
+	ir=revords[ifile][i+trc1];
+	x=obsvecs[ifile][ir];
+	if(x<0.0) x=0.0;
+	y+=x;
+      }
+      obsvec[i]=y;
+      orderv[i]=i;
+    }
+    orderv[i]=i;
+
+    /* sorting items */
+    sort(obsvec,orderv,cm-1);
+    x=obsvec[0];
+    for(i=0;i<cm-1;i++) {
+      obsvec[i]=obsvec[i]-x;
+    }
+    obsvec[0]=-obsvec[1];
+    for(i=0;i<cm;i++) {
+      for(j=0;j<pvnum;j++) 
+	pvmat2[i][j]=pvmat[orderv[i]][j];
+    }
+
+    if(fname_cong) {
+      fp=openfp(fname_cong,fext_cong,"w",&cbuf);
+      printf("\n# writing %s",cbuf);
+    } else {
+      fp=STDOUT;
+      printf("\n# writing to stdout\n");
+    }
+
+    fprintf(fp,"\n# ID:\n%d\n",1); 
+    fprintf(fp,"\n# ITEM:\n"); fwrite_ivec(fp,orderv,cm);
+    fprintf(fp,"\n# STAT:\n"); fwrite_vec(fp,obsvec,cm);
+    fprintf(fp,"\n# BIT:\n%d\n",outbit); 
+    fprintf(fp,"\n# PV:\n"); fwrite_mat(fp,pvmat2,cm,pvnum);  
+    fprintf(fp,"\n# SE:\n"); fwrite_mat(fp,semat,cm,pvnum);  
+    fprintf(fp,"\n# AX:\n"); fwrite_mat(fp,auxmat,cm,auxnum);  
+
+    if(fname_cong) {fclose(fp); FREE(cbuf);}
+  }
+
+  printf("\n");
   return 0;
 }
