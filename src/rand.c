@@ -11,7 +11,7 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id$
+ $Id: rand.c,v 1.1 1998/11/30 09:03:13 shimo Exp shimo $
 
  */
 
@@ -514,3 +514,10 @@ int 	df2;
 	
 	return (fval);
 	}
+
+
+/**** additional functions ****/
+#define I_SQRT_2_PI 0.398942280401432677939946059934 /* 1/sqrt(2pi) */
+double dnorm(double x) {
+  return  I_SQRT_2_PI*exp(-0.5*x*x);
+}
