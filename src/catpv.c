@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2001-06-27 11:48:22 shimo>
+  Time-stamp: <2001-12-10 14:33:13 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.5 2001/05/31 02:47:52 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.6 2001/08/10 06:10:53 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -41,10 +41,15 @@ void print_pval(double pv, double se)
 int *permrev(int *order, int *rev, int n)
 {
   int i;
+  static int m=0, *sav=NULL;
+  if(n>m) {sav=renew_ivec(sav,n); m=n;}
   if(!rev) rev=new_ivec(n);
-  for(i=0;i<n;i++) rev[i]=i;
+  for(i=0;i<n;i++) {rev[i]=i; sav[i]=order[i];}
   isort(order,rev,n);
-  for(i=0;i<n;i++) if(order[i]!=i) error("invalid perm vector");
+  for(i=0;i<n;i++) {
+    if(order[i]!=i) warning("invalid perm vector");
+    order[i]=sav[i];
+  }
   return rev;
 }
 
@@ -55,6 +60,7 @@ int sw_pbp=1;
 int sw_pmc=1;
 int sw_cat=0;
 int sw_prt=1;
+int sw_sort=0;
 
 char *fname_cat=NULL;
 char *fext_cat=".out";
@@ -77,10 +83,10 @@ int trc2=0; /* end for aggregate */
 int main(int argc, char** argv)
 {
   /* working variables */
-  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,cm0=0;
+  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,cm0=0,cm1=0;
   FILE *fp;
   char **fnamev,*cbuf;
-  int *orderv; double *obsvec;
+  int *orderv; double *obsvec; int *revordv=NULL;
   double **pvmat,**semat,**auxmat;
   int sw_bp,sw_mc,sw_au;
   double **outmat;
@@ -110,6 +116,8 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"-o")) {
       sw_cat=1;
       if(i+1<argc) {fname_cat=argv[i+1]; i++;}
+    } else if(streq(argv[i],"-s")) {
+      sw_sort=1;
     } else if(streq(argv[i],"-e")) {
       sw_printse=1;
     } else if(streq(argv[i],"-v")) {
@@ -149,6 +157,9 @@ int main(int argc, char** argv)
     semat=fread_mat(fp,&cm,&pvnum);
     auxmat=fread_mat(fp,&cm,&auxnum);
     if(!cm0 || cm<cm0) cm0=cm; /* take the min */
+    if(cm>cm1) cm1=cm; /* take the max */
+
+    revordv=permrev(orderv,NULL,cm); /* for sorting the item */
 
     sw_bp=sw_au=sw_mc=j=0;
     if(pvnum & BPPVNUM) {sw_bp=1; jbp=j; j+=BPPVNUM;}
@@ -184,37 +195,38 @@ int main(int argc, char** argv)
     }
 
     for(i=0;i<cm;i++) {
-      if(sw_prt) printf("\n# %4d %4d %6.1f",i+1,orderv[i]+1,obsvec[i]);
+      if(sw_sort) ir=revordv[i]; else ir=i;
+      if(sw_prt) printf("\n# %4d %4d %6.1f",ir+1,orderv[ir]+1,obsvec[ir]);
       j=0;
       if(sw_au) {
 	j=jau;
-	print_pval(pvmat[i][j+0],semat[i][j+0]);
-	print_pval(pvmat[i][j+1],semat[i][j+1]);
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
+	print_pval(pvmat[ir][j+1],semat[ir][j+1]);
       }
       if(sw_prt) printf(" |");
       if(sw_bp) {
 	j=jbp;
-	print_pval(pvmat[i][j+0],semat[i][j+0]);
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
       }
       if(sw_mc) {
 	j=jmc;
-	print_pval(pvmat[i][j+0],semat[i][j+0]);
-	print_pval(pvmat[i][j+1],semat[i][j+1]);
-	print_pval(pvmat[i][j+2],semat[i][j+2]);
-	print_pval(pvmat[i][j+3],semat[i][j+3]);
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
+	print_pval(pvmat[ir][j+1],semat[ir][j+1]);
+	print_pval(pvmat[ir][j+2],semat[ir][j+2]);
+	print_pval(pvmat[ir][j+3],semat[ir][j+3]);
       }
       if(sw_prt) printf(" |");
       if(sw_verpose && sw_au) {
 	printf(" %6.3f %6.3f %2.0f %6.3f %6.3f %6.3f",
-	       auxmat[i][0],auxmat[i][1],auxmat[i][2],
-	       auxmat[i][3],auxmat[i][4],auxmat[i][5]);
+	       auxmat[ir][0],auxmat[ir][1],auxmat[ir][2],
+	       auxmat[ir][3],auxmat[ir][4],auxmat[ir][5]);
       } 
     }
 
     if(sw_cat){ /* saving the file */
       pvmats[ifile]=pvmat;  semats[ifile]=semat;
       auxmats[ifile]=auxmat; obsvecs[ifile]=obsvec;
-      revords[ifile]=permrev(orderv,NULL,cm); free_ivec(orderv);
+      revords[ifile]=revordv; free_ivec(orderv);
     } else { /* discard them */
       free_mat(pvmat); free_mat(semat); free_mat(auxmat);
       free_ivec(orderv); free_vec(obsvec);
@@ -245,6 +257,7 @@ int main(int argc, char** argv)
     printf("\n# c:   curvature");
     printf("\n# th:  threshold for the region");
     printf("\n#\n# OPTIONS");
+    printf("\n# -s: sort by the item");
     printf("\n# -v: show the details");
     printf("\n# -e: show the standard errors");
     printf("\n# --no_au: suppress au test");
