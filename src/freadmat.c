@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.2 2001/08/10 06:01:01 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.3 2001/12/10 03:28:14 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -207,7 +207,7 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
 	len *= 2;
 	V = (double *)renew_vec(V, len);
       }
-      V[n++] = fread_d(fp);
+      V[n++] = -fread_d(fp); /* changed by shimo --- multiply -1 */
     }
     if(*np>0 && *np != n) error("size of columns mismatch in mat");
     *np = n;
