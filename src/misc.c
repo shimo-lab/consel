@@ -2,13 +2,13 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2001-05-05 12:15:13 shimo>
+  Time-stamp: <2001-05-29 12:10:45 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
 
-  Meschach library:  v_sort, skipjunk
-  Molphy: luinverse
+  Meschach library:  v_sort, skipjunk (David E. Stewart)
+  Molphy: luinverse (J.Adachi)
 
 */
 
@@ -16,12 +16,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 #include <math.h>
 #include <stdarg.h>
-#include <sys/time.h>
+#include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.3 2001/04/16 07:00:34 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.4 2001/05/05 09:06:26 shimo Exp shimo $";
 
 /*
   error message handling
@@ -67,22 +68,9 @@ double get_time(void)
 {
   clock_t t;
   double x;
-  static clock_t t0=0;
 
-  struct tms {
-    clock_t    tms_utime;
-    clock_t    tms_stime;
-    clock_t    tms_cutime;
-    clock_t    tms_cstime;
-  } tmrec;
-
-  clock_t times();
-
-  t = times(&tmrec);
-  t = tmrec.tms_utime+tmrec.tms_stime;
-  if(t0==0) t0=t;
-  x = (double) (t-t0) / 100.0; /* seconds */
-
+  t = clock();
+  x = (double) t / CLOCKS_PER_SEC;
   return x;
 }
 
@@ -162,7 +150,7 @@ int fskipjunk(FILE *fp)
     /* skip comments (if any) */
     if ( c == '#' )
       /* yes it is a comment (line) */
-      while ( (c=getc(fp)) != '\n' );
+      while ( (c=getc(fp)) != 0xa ); /* UNIX '\n'->0xA but DOS '\n'->0xD 0xA */
     else {
       ungetc(c,fp);
       break;
@@ -197,6 +185,47 @@ char *mstrcat(char *str1, char *str2)
   return str;
 }
 /*
+  check if same extension
+*/
+int chkext(char *name, char *ext)
+{
+  int i,len1,len2;
+  len1=strlen(name); len2=strlen(ext);
+  if(len1<len2) return 0; /* differ */
+  for(i=0;i<len2;i++) if(name[len1-len2+i] != ext[i]) break;
+  if(i != len2) return 0; /* differ */
+  return 1; /* same */
+}
+/*
+  check if any extension
+*/
+int chkaxt(char *name)
+{
+  int i,len;
+  len=strlen(name);
+  for(i=len-1;i>=0;i--) if(!isalnum(name[i])) break;
+  if(i>0 && name[i]=='.' && 
+     (name[i-1]!='/' && name[i-1]!='.')) return 1; /* some extension */
+  return 0; /* no extension */
+}
+/*
+  get basename by removing extension if any
+*/
+char *rmvaxt(char *name)
+{
+  int i,len;
+  char *out;
+  len=strlen(name);
+  for(i=len-1;i>=0;i--) if(!isalnum(name[i])) break;
+  if(i>0 && name[i]=='.' && 
+     (name[i-1]!='/' && name[i-1]!='.')) 
+    len=i; /* some extension */
+  out=NEW_A(len+1,char);
+  for(i=0;i<len;i++) out[i]=name[i];
+  name[i]=0;
+  return out;
+}
+/*
   open file
 */
 FILE *openfp(char *name, char *ext, char *mode, char **fnamep)
@@ -204,13 +233,14 @@ FILE *openfp(char *name, char *ext, char *mode, char **fnamep)
   char *fname;
   FILE *fp;
 
-  fname = mstrcat(name,ext); 
+  /*  if(chkext(name,ext)) fname = mstrcat(name,"");  */
+  if(chkaxt(name)) fname = mstrcat(name,"");
+  else fname = mstrcat(name,ext); 
   fp=fopen(fname,mode);
   if(fp==NULL) error("cant open %s",fname);
   if(fnamep != NULL) *fnamep = fname; else FREE(fname);
   return fp;
 }
-
 
 /*
   ascii read/write
@@ -391,7 +421,7 @@ int fread_bi(FILE *fp)
   return x;
 }
 
-int fread_bd(FILE *fp)
+double fread_bd(FILE *fp)
 {
   double x;
   if(fread(&x,sizeof(double),1,fp)!=1) error("cant read binary double");
@@ -583,7 +613,7 @@ double eps = 1.0e-20; /* ! */
 
 
 
-/* borrowed from mesch and then corrected a bug (almost rewritten) */
+/* borrowed from mesch and then corrected a bug (almost rewritten by shimo) */
 
 #define	MAX_STACK	60
 
@@ -870,3 +900,4 @@ int argmax_vec(double *vec, int n)
   for(i=1;i<n;i++) if(vec[i]>x) {x=vec[i]; k=i;}
   return k;
 }
+
