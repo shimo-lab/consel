@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2001-12-10 14:33:13 shimo>
+  Time-stamp: <2002-01-10 21:39:18 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.6 2001/08/10 06:10:53 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.7 2001/12/10 05:52:47 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -55,6 +55,7 @@ int *permrev(int *order, int *rev, int n)
 
 int sw_help=0;
 int sw_verpose=0;
+int sw_pba=1;
 int sw_pau=1;
 int sw_pbp=1;
 int sw_pmc=1;
@@ -74,21 +75,33 @@ int trc1=0; /* start for aggregate */
 int trc2=0; /* end for aggregate */
 
 
+/* define bit sw */
+#define BPPVSW 1
+#define BAPVSW 2
+#define MCPVSW 4
+#define AUPVSW 8
+
+/* number of entries */
 #define BPPVNUM 1
+#define BAPVNUM 1
 #define MCPVNUM 4
 #define AUPVNUM 2
+
+/* number of aux entries */
 #define BPAUXNUM 0
+#define BAAUXNUM 0
 #define MCAUXNUM 0
 #define AUAUXNUM 6
+
 int main(int argc, char** argv)
 {
   /* working variables */
-  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,cm0=0,cm1=0;
+  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,jba,cm0=0,cm1=0;
   FILE *fp;
   char **fnamev,*cbuf;
   int *orderv; double *obsvec; int *revordv=NULL;
   double **pvmat,**semat,**auxmat;
-  int sw_bp,sw_mc,sw_au;
+  int sw_bp,sw_ba,sw_mc,sw_au,fileid,outbit;
   double **outmat;
 
   fnamev=NEW_A(argc-1,char*);
@@ -128,6 +141,8 @@ int main(int argc, char** argv)
       sw_pau=0;
     } else if(streq(argv[i],"--no_bp")) {
       sw_pbp=0;
+    } else if(streq(argv[i],"--no_ba")) {
+      sw_pba=0;
     } else if(streq(argv[i],"--no_sh")) {
       sw_pmc=0;
     } else if(streq(argv[i],"--no_print")) {
@@ -151,8 +166,10 @@ int main(int argc, char** argv)
   for(ifile=0;ifile<nfile;ifile++) {
     fp=openfp(fnamev[ifile],fext_pv,"r",&cbuf);
     if(sw_prt) printf("\n# reading %s",cbuf);
+    fileid=fread_i(fp); if(fileid!=1) error("wrong file type");
     cm=pvnum=auxnum=0;
     orderv=fread_ivec(fp,&cm); obsvec=fread_vec(fp,&cm);
+    outbit=fread_i(fp);
     pvmat=fread_mat(fp,&cm,&pvnum);
     semat=fread_mat(fp,&cm,&pvnum);
     auxmat=fread_mat(fp,&cm,&auxnum);
@@ -161,16 +178,14 @@ int main(int argc, char** argv)
 
     revordv=permrev(orderv,NULL,cm); /* for sorting the item */
 
-    sw_bp=sw_au=sw_mc=j=0;
-    if(pvnum & BPPVNUM) {sw_bp=1; jbp=j; j+=BPPVNUM;}
-    if(pvnum & MCPVNUM) {sw_mc=1; jmc=j; j+=MCPVNUM;}
-    if(pvnum & AUPVNUM) {sw_au=1; jau=j; j+=AUPVNUM;}
+    sw_bp=sw_ba=sw_au=sw_mc=j=0;
+    if(outbit & BPPVSW) {sw_bp=1; jbp=j; j+=BPPVNUM;}
+    if(outbit & BAPVSW) {sw_ba=1; jba=j; j+=BAPVNUM;}
+    if(outbit & MCPVSW) {sw_mc=1; jmc=j; j+=MCPVNUM;}
+    if(outbit & AUPVSW) {sw_au=1; jau=j; j+=AUPVNUM;}
       
-    if(sw_bp + sw_au + sw_mc == 0) {
-      warning("file type unknown (pv:%d, aux:%d)",pvnum,auxnum);
-    }
-
     sw_bp = sw_bp && sw_pbp && sw_prt;
+    sw_ba = sw_ba && sw_pba && sw_prt;
     sw_au = sw_au && sw_pau && sw_prt;
     sw_mc = sw_mc && sw_pmc && sw_prt;
 
@@ -182,6 +197,9 @@ int main(int argc, char** argv)
     if(sw_prt) printf(" |");
     if(sw_bp) {
       print_pvname("bp");
+    }
+    if(sw_ba) {
+      print_pvname("ba");
     }
     if(sw_mc) {
       print_pvname("kh");
@@ -206,6 +224,10 @@ int main(int argc, char** argv)
       if(sw_prt) printf(" |");
       if(sw_bp) {
 	j=jbp;
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
+      }
+      if(sw_ba) {
+	j=jba;
 	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
       }
       if(sw_mc) {
@@ -245,6 +267,7 @@ int main(int argc, char** argv)
     printf("\n# np:  the naive p-value");
     printf("\n# --- p-values using the unscaled bootstrap ---");
     printf("\n# bp:  the bootstrap probability");
+    printf("\n# ba:  the Bayesian posterior");
     printf("\n# kh:  the Kishino-Hasegawa test");
     printf("\n# sh:  the Shimodaira-Hasegawa test");
     printf("\n# wkh: the weighted KH-test");
@@ -262,6 +285,7 @@ int main(int argc, char** argv)
     printf("\n# -e: show the standard errors");
     printf("\n# --no_au: suppress au test");
     printf("\n# --no_bp: suppress bp test");
+    printf("\n# --no_ba: suppress ba test");
     printf("\n# --no_sh: suppress sh test");
     printf("\n# --no_print: suppress printing");
     printf("\n# -o file: aggregating output");
