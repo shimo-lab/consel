@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-08-21 09:52:26 shimo>
+  Time-stamp: <2003-07-28 16:08:24 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.16 2002/08/20 15:19:38 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.17 2002/08/21 00:52:41 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2573,14 +2573,14 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
       continue;
     }
     if(idf0 >= dfmin && (fabs(z-z0)<vceps1*ze0)) {
-      if(th==threshold) xn=th; else th=x;
+      if(fabs(th-threshold)<1e-10) xn=th; else th=x;
     } else xn=vcscale*th+(1.0-vcscale)*x;
     *pvp=pv;*sep=se;*rssp=rss;*dfp=df;*thp=x; 
     *pv0p=pv0;*se0p=se0;
     if(betap) *betap=beta;  if(vmatp) *vmatp=vmat;
 
     z0=z;ze0=ze; idf0=idf;
-    if(x==th) return 0;
+    if(fabs(x-th)<1e-10) return 0;
   }
   
   dprintf(1,"\n# no-convergence");
