@@ -2,7 +2,7 @@
 
   catrep.c : join and select rep files
 
-  Time-stamp: <2001-06-01 07:53:32 shimo>
+  Time-stamp: <2001-06-23 13:24:08 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catrep.c,v 1.4 2001/05/29 06:34:44 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catrep.c,v 1.5 2001/06/08 01:22:20 shimo Exp shimo $";
 
 typedef struct {
   int kk; /* number of scales */
@@ -61,6 +61,7 @@ repstat **repins=NULL;
 int nrepins=0;
 repstat reppar, repout, repin;
 int sw_asciiout=0;
+int sw_lmat=0;
 
 int main(int argc, char** argv)
 {
@@ -100,6 +101,8 @@ int main(int argc, char** argv)
       mode_rmt=1;
     } else if(streq(argv[i],"-a")) {
       sw_asciiout=1;
+    } else if(streq(argv[i],"-L")) {
+      sw_lmat=1;
     } else if(streq(argv[i],"--no_sort")) {
       sw_sort=0;
     } else byebye();
@@ -115,9 +118,8 @@ int main(int argc, char** argv)
 
   /* reading parameter file */
   if(fname_pa!=NULL) {
-    fname_pa = mstrcat(fname_pa,fext_pa);
-    if((fp=fopen(fname_pa,"r"))==NULL) error("cant open %s",fname_pa);
-    printf("\n# reading %s",fname_pa);
+    fp=openfp(fname_pa,fext_pa,"r",&cbuf);
+    printf("\n# reading %s",cbuf);
     reppar.kk=0;
     reppar.rr=fread_vec(fp,&(reppar.kk));
     fclose(fp);
@@ -127,10 +129,8 @@ int main(int argc, char** argv)
   repins=NEW_A(nfile,repstat*);
 
   for(ifile=0;ifile<nfile;ifile++){
-    cbuf=mstrcat(fnamev_in[ifile],mode_rmt?fext_rmt:fext_rep);
-    if((fp=fopen(cbuf,"rb"))==NULL) error("cant open %s",cbuf);
-    printf("\n# reading %s.",cbuf);
-
+    fp=openfp(fnamev_in[ifile],mode_rmt?fext_rmt:fext_rep,"rb",&cbuf);
+    printf("\n# reading %s",cbuf);
     rp=repins[ifile]=NEW_A(1,repstat);
     rp->cm=rp->kk=0;
     if(!mode_rmt) rp->ord=fread_bivec(fp,&(rp->cm));
@@ -142,7 +142,9 @@ int main(int argc, char** argv)
     rp->mats=NEW_A(rp->kk,double**);
     if(!mode_nop){
       for(i=0;i<rp->kk;i++) {
-	rp->mats[i]=fread_bmat(fp,&(rp->cm),(rp->bb)+i); putdot();
+	if(sw_lmat) rp->mats[i]=fread_blmat(fp,&(rp->cm),(rp->bb)+i);
+	else rp->mats[i]=fread_bmat(fp,&(rp->cm),(rp->bb)+i); 
+	putdot();
       }
     } else {
       printf(" --- skipped.");
@@ -189,7 +191,8 @@ int main(int argc, char** argv)
   repin.mats = NEW_A(repin.kk,double**);
   ibuf=new_ivec(repin.kk);
   for(i=0;i<repin.kk;i++) {
-    repin.mats[i]=new_mat(repin.cm,repin.bb[i]);
+    if(sw_lmat) repin.mats[i]=new_lmat(repin.cm,repin.bb[i]);
+    else repin.mats[i]=new_mat(repin.cm,repin.bb[i]);
     ibuf[i]=0;
   }
   /* now merging all the repmats */
@@ -255,10 +258,9 @@ int main(int argc, char** argv)
   }
 
   /* output */
-  fname_out = mstrcat(fname_out,mode_rmt?fext_rmt:fext_rep);
-  if((fp=fopen(fname_out,sw_asciiout?"w":"rb"))==NULL)
-    error("cant open %s",fname_out);
-  printf("\n# writing %s.",fname_out);
+  fp=openfp(fname_out,mode_rmt?fext_rmt:fext_rep,
+	    sw_asciiout?"w":"wb",&cbuf);
+  printf("\n# writing %s",cbuf);
   if(sw_asciiout) {
     if(!mode_rmt) fwrite_ivec(fp,repout.ord,repout.cm);
     fwrite_vec(fp,repout.obs,repout.cm);
