@@ -1,7 +1,7 @@
 /*
   treeass.c : find the associations of the trees
 
-  Time-stamp: <2002-04-17 11:20:23 shimo>
+  Time-stamp: <2002-07-26 12:07:02 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,7 +18,7 @@
 #include "misc.h"
 #include "tree.h"
 
-static const char rcsid[] = "$Id: treeass.c,v 1.5 2002/04/16 15:59:38 shimo Exp shimo $";
+static const char rcsid[] = "$Id: treeass.c,v 1.6 2002/04/18 04:22:19 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -39,11 +39,13 @@ ivec *splitcom; /* splits common to all the trees */
 ivec *splitbase; /* base splits */
 
 ivec **splittree; /* the table from split to tree */
+ivec **splittree2; /* the table from split to tree */
 
 int sw_nleaf=0;
 int sw_prtlabel=1;
 
 int *treehist,*treeorder,ntree2;
+int *splithist,*splitorder,*splitrevo,*itmp;
 
 int ioutgroup=0;
 
@@ -239,6 +241,34 @@ int main(int argc, char** argv)
   for(i=0;i<ntree;i++)
     if((treehist[i]=-treehist[i])) ntree2++;
 
+  /* making histogram of splits */
+  i=splitbase->len;
+  splithist=new_ivec(i); splitorder=new_ivec(i);
+  splitrevo=new_ivec(i); itmp=new_ivec(i);
+  for(j=0;j<splitbase->len;j++) splithist[j]=0;
+  for(i=0;i<ntree;i++) {
+    for(j=0;j<treesplit[i]->len;j++)
+      splithist[treesplit[i]->ve[j]]--;
+  }
+  isort(splithist,splitorder,splitbase->len);
+  for(j=0;j<splitbase->len;j++) {
+    splithist[j]=-splithist[j];
+    itmp[j]=splitorder[j];
+  }
+  isort(itmp,splitrevo,splitbase->len);
+
+  /* renumbering splits */
+  perm_ivec(splitorder,splitbase->ve,splitbase->len);
+  for(i=0;i<ntree;i++) {
+    for(j=0;j<treesplit[i]->len;j++)
+      treesplit[i]->ve[j] = splitrevo[treesplit[i]->ve[j]];
+  }
+  splittree2=NEW_A(splitbase->len,ivec*);
+  for(i=0;i<splitbase->len;i++) {
+    splittree2[i] = splittree[splitorder[i]];
+  }
+  splittree=splittree2;
+
   /****************************************/
 
   fprintf(fpl,"\n# %d base-edges, %d common-edges, %d root-edge",
@@ -265,22 +295,31 @@ int main(int argc, char** argv)
   fprintf(fpl,"\n# base edges: %d\n%d %d",
 	  splitbase->len,splitbase->len,nleaf);
   fprintf(fpl,"\n    ");
+  for(i=1;i<=nleaf;i++)
+    if(i%10==0) fprintf(fpl,"%d",(i/10)%10); else fprintf(fpl," ");
+  fprintf(fpl,"\n    ");
   for(i=1;i<=nleaf;i++) fprintf(fpl,"%d",i%10);
   for(i=0;i<splitbase->len;i++) {
     sp=splitvec[splitbase->ve[i]];
-    fprintf(fpl,"\n%3d ",i+1);
+    fprintf(fpl,"\n%3d ",i+1); 
     fprintsplit(fpl,sp);
+    x=(double)splithist[i]/ntree;
+    fprintf(fpl,"  ; (%6.4f)",x);
   }
   
   /* print the common splits */
   fprintf(fpl,"\n\n# common edges: %d\n%d %d",
 	  splitcom->len-1,splitcom->len-1,nleaf);
   fprintf(fpl,"\n    ");
+  for(i=1;i<=nleaf;i++)
+    if(i%10==0) fprintf(fpl,"%d",(i/10)%10); else fprintf(fpl," ");
+  fprintf(fpl,"\n    ");
   for(i=1;i<=nleaf;i++) fprintf(fpl,"%d",i%10);
   for(i=1;i<splitcom->len;i++) { /* discard the first split, i.e. root */
     sp=splitvec[splitcom->ve[i]];
     fprintf(fpl,"\n%3d ",i+splitbase->len);
     fprintsplit(fpl,sp);
+    fprintf(fpl,"  ; (%6.4f)",1.0);
   }
 
   /* print tree->split association */
