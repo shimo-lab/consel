@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.3 2001/12/10 03:28:14 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.4 2001/12/10 06:16:21 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -164,61 +164,45 @@ double **fread_mat_paup1(FILE *fp, int *mp, int *np)
   return A;
 }
 
-int skip_head(FILE *fp)
-{
-  int n;
-
-  while( !ferror( fp ) && !feof( fp ) ) {
-    n = fread_i_noerror(fp);
-    if( n ) return 1;
-    fskipline(fp);
-  }
-  return 0;
-}
-
-int skip_next(FILE *fp)
-{
-  double v;
-
-  while( !ferror( fp ) && !feof( fp ) ) {
-    v = fread_d_noerror(fp);
-    fskipline(fp);
-    if( v != 0.0 ) return 1;
-  }
-  return 0;
-}
-
 double **fread_mat_paup2(FILE *fp, int *mp, int *np)
+/* by shimo (20020820) */
 {
-  int m,n,t,len;
+  int m,n,len,c;
   double **A;
   double *V;
 
-  m = 0;
+  n = m = 0;
   len = INIT_VEC_SIZE;
   A = NULL; V = NULL;
-  skip_head(fp);
-  while( skip_next(fp) ) {
-    for( n = 0; !ferror(fp) && !feof(fp); fskipjunk(fp) ) {
-      t = fread_i_noerror(fp);
-      if( t != n + 1 )
-	break;
-      if( V == NULL || t > len ) {
+
+  while(!ferror(fp) && !feof(fp)) {
+    c=getc(fp);
+    if(c=='#') {fskipline(fp); continue; }
+    if(c=='\t') {
+      fread_i_noerror(fp);
+      if( V == NULL || n >= len ) {
 	len *= 2;
 	V = (double *)renew_vec(V, len);
       }
-      V[n++] = -fread_d(fp); /* changed by shimo --- multiply -1 */
+      V[n++] = -fread_d(fp);
+      fskipline(fp);
+    } else {
+      fskipline(fp);
+      if(n>0) {
+	if(*np>0 && *np != n) error("size of columns mismatch in mat");
+	*np = n;
+	A = (double **)renew_mat( A, m + 1, n );
+	memcpy( A[m++], V, n * sizeof(double) );
+	n=0;
+      }
     }
-    if(*np>0 && *np != n) error("size of columns mismatch in mat");
-    *np = n;
-    A = (double **)renew_mat( A, m + 1, n );
-    memcpy( A[m++], V, n * sizeof(double) );
   }
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   *mp = m;
   free( V );
   return A;
 }
+
 
 #define PAUP2HEAD "Tree\t-lnL\tSite"
 double **fread_mat_paup(FILE *fp, int *mp, int *np)
