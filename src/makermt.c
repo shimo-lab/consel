@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-04-12 08:19:12 shimo>
+  Time-stamp: <2001-04-12 14:21:24 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: makermt.c,v 1.1 2001/04/11 23:27:19 shimo Exp shimo $";
 
 
 /*
@@ -36,9 +36,9 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 		   int bb  /* number of bootstrap replicates */
 		   ) {
   int i,j,k;
-  double x,*xv,*wv,*rv;
+  double x,*wv,*rv;
 
-  xv=new_vec(m); wv=new_vec(n); rv=new_vec(bn);
+  wv=new_vec(n); rv=new_vec(bn);
   if(repmat==NULL) repmat=new_mat(m,bb);
 
   for(i=0;i<bb;i++) {
@@ -64,7 +64,7 @@ double **scaleboot(double **datmat, /* m x n data matrix */
     }
   }
 
-  free_vec(xv);
+  free_vec(wv); free_vec(rv);
   return repmat;
 }
 
@@ -199,6 +199,7 @@ int main(int argc, char** argv)
     fwrite_bvec(fp,datvec,mm);
     fwrite_bvec(fp,rr,kk);
     fwrite_bivec(fp,bb,kk);
+    fwrite_bi(fp,kk);
     for(i=0;i<kk;i++) {
       fwrite_bmat(fp,repmats[i],mm,bb[i]);
       putchar('.');
@@ -210,6 +211,7 @@ int main(int argc, char** argv)
     printf("\n# R:\n"); write_vec(rr,kk);
     printf("\n# B:\n"); write_ivec(bb,kk);
     printf("\n# RMAT:\n");
+    printf("%d\n",kk);
     for(i=0;i<kk;i++) {
       printf("\n## RMAT[%d]:\n",i); write_mat(repmats[i],mm,bb[i]);
     }
