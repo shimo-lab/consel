@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2001-05-05 17:52:27 shimo>
+  Time-stamp: <2001-05-17 07:03:43 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: consel.c,v 1.1 2001/05/05 09:06:53 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <math.h>
@@ -67,20 +67,21 @@ double *getseval(double *pval, int m, int nb, double *seval);
 
 /* multiscale bootstrap routines */
 int rcalpval(double *cnts, double *rr, int *bb, int kk,
-	     double *pv, double *se, double *rss, double *df, 
+	     double *pv, double *se, double *pv0, double *se0, 
+	     double *rss, double *df, 
 	     double **betap, double ***vmatp);
 int vcalpval(double **statps, double *rr, int *bb, int kk,
 	     double threshold, double *thp,
-	     double *pvp, double *sep, double *rssp, double *dfp, 
+	     double *pvp, double *sep, double *pv0p, double *se0p, 
+	     double *rssp, double *dfp, 
 	     double **betap, double ***vmatp);
 int invtpval(double **statps, double *rr, int *bb, int kk,
-	     double alpha,
+	     double alpha, int swbp,
 	     double *cival, double *seval, double *eival);
 
 /* for main */
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
-
 
 /* file name and their extensions */
 char *fname_rmt = NULL; char *fext_rmt = ".rmt";
@@ -121,13 +122,15 @@ double **cntmat=NULL; /* (kk,cm)-matrix of counts */
 /* misc */
 double threshold=0.0; /* the region is defined as x <= thereshold */
 double varadd=1.0; /* adding to wtmat */
+#define VARADDWARN 100.0 /* warning if var < varadd*VARADDWARN */
 #define HUGENUM 1.0e30;
 
 /* for mc-tests: p-values and se (cm-vector) */
 double *npvec, *nsvec; /* naive p-value */
 double *mcpvec, *mcsvec; /* p-value of nonweighted mc-test */
-double *mspvec, *mssvec; /* p-value of weighted mc-test */
+double *mcwpvec, *mcwsvec; /* p-value of weighted mc-test */
 double *khpvec, *khsvec; /* kh-test p-value */
+double *khwpvec, *khwsvec; /* weighted kh-test p-value */
 
 /* for msboot: p-values and se (cm-vector) */
 double *pvvec, *sevec ; /* multi-scale pvalue */
@@ -146,10 +149,15 @@ double pfmin; int dfmin;
 int nalpha=0, nalpha0=5; /* number of alpha's */
 double *alphavec=NULL; /* nalpha-vector of alpha's */
 double alphavec0[]={0.05,0.10,0.5,0.90,0.95}; /* default value */
+double cieps;
+/* au */
 double **cimat=NULL; /* (cm,nalpha)-mat of confidence limits */
 double **csmat=NULL; /* se of cimat */
 double **eimat=NULL; /* error index of cimat */
-double cieps;
+/* bp */
+double **ci0mat=NULL; /* (cm,nalpha)-mat of confidence limits */
+double **cs0mat=NULL; /* se of cimat */
+double **ei0mat=NULL; /* error index of cimat */
 
 /* work */
 double *buf1; /* mm-vector */
@@ -164,6 +172,7 @@ int sw_incnt=0; /* input cnt file */
 int sw_smoothcnt=0; /* smooth cnt file */
 int sw_domc=1; /* dont skip mc-tests */
 int sw_doau=1; /* dont skip au-tests */
+int sw_nosort=0; /* dont sort the items */
 
 /* main routines */
 int do_rmtmode();
@@ -222,6 +231,8 @@ int main(int argc, char** argv)
 	 sscanf(argv[i+1],"%d",&cm) != 1)
 	byebye();
       i+=1;
+    } else if(streq(argv[i],"--no_sort")) {
+      sw_nosort=1;
     } else if(streq(argv[i],"--skip_mc")) {
       sw_domc=0;
     } else if(streq(argv[i],"--skip_au")) {
@@ -230,7 +241,7 @@ int main(int argc, char** argv)
       sw_smoothcnt=1;
     } else if(streq(argv[i],"--quick_mctest")) {
       sw_pvaldist=0; /* avoid sorting the replicates */
-    } else if(streq(argv[i],"--threshold")) {
+    } else if(streq(argv[i],"--th")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&threshold) != 1)
 	byebye();
@@ -371,7 +382,11 @@ int do_rmtmode()
     for(j=0;j<asslen0[i];j++) dvbuf[i]->ve[j]=buf1[assvec0[i][j]];
     sort(dvbuf[i]->ve,NULL,dvbuf[i]->len);
   }
-  psort((void**)dvbuf,orderv,cm0,(int (*)(void *, void *))&compdvec);
+  if(sw_nosort) {
+    for(i=0;i<cm0;i++) orderv[i]=i;
+  } else {
+    psort((void**)dvbuf,orderv,cm0,(int (*)(void *, void *))&compdvec);
+  }
   dprintf(1,"\n# observed statistics for the associations");
   dprintf(1,"\n# %4s %4s ","rank","item");
   for(i=0;i<cm0;i++) {
@@ -558,8 +573,9 @@ int do_mctest()
 
   /* alloc memory */
   repmat=new_mat(mm,nb); statmat=new_mat(cm,nb);
-  npvec=new_vec(cm); khpvec=new_vec(cm); 
-  mcpvec=new_vec(cm); mspvec=new_vec(cm);
+  npvec=new_vec(cm); 
+  khpvec=new_vec(cm); khwpvec=new_vec(cm); 
+  mcpvec=new_vec(cm); mcwpvec=new_vec(cm);
   mnvec=new_vec(mm); wtmat=new_mat(mm,mm);
 
   /* copy repmats[i0] to repmat */
@@ -604,19 +620,31 @@ int do_mctest()
     for(j=0;j<i;j++) {
       yp=repmat[j]; x=0.0;
       for(ib=0;ib<nb;ib++) x+=(xp[ib]-yp[ib])*(xp[ib]-yp[ib]);
+      if(x<varadd*VARADDWARN) 
+	warning("small variance [%d,%d]: %g<%g*%g",i+1,j+1,
+		x,varadd,VARADDWARN);
       wtmat[i][j]=wtmat[j][i]=1.0/sqrt((x+varadd)/(nb-1));
     }
     putdot();
   }
 
-  /* calculate ms-pvalue */
-  printf("\n# calculating ms-pvalue");  
+  /* calculate khw-pvalue */
+  printf("\n# calculating weighted kh-pvalue");    
   for(i=0;i<cm;i++) {
-    mspvec[i]=calcmcpval(datvec,repmat,mm,nb,
-			 assvec[i],cassvec[i],asslen[i],wtmat);
+    khwpvec[i]=calckhpval(datvec,repmat,mm,nb,
+			  assvec[i],cassvec[i],asslen[i],wtmat);
     putdot();
   }
-  mssvec=getseval(mspvec,cm,nb,NULL);
+  khwsvec=getseval(khwpvec,cm,nb,NULL);
+
+  /* calculate mcw-pvalue */
+  printf("\n# calculating weighted mc-pvalue");  
+  for(i=0;i<cm;i++) {
+    mcwpvec[i]=calcmcpval(datvec,repmat,mm,nb,
+			  assvec[i],cassvec[i],asslen[i],wtmat);
+    putdot();
+  }
+  mcwsvec=getseval(mcwpvec,cm,nb,NULL);
 
   printf("\n# MC-TEST DONE");
 
@@ -628,7 +656,7 @@ int do_mctest()
 int do_bootrep()
 {
   int i,j,k;
-  double **statp,*beta,**vmat,x;
+  double **statp,*beta,**vmat;
 
   printf("\n# AU-TEST STARTS");
 
@@ -643,6 +671,8 @@ int do_bootrep()
   /* memory alloc for ci */
   cimat=new_mat(cm,nalpha); csmat=new_mat(cm,nalpha);
   eimat=new_mat(cm,nalpha);
+  ci0mat=new_mat(cm,nalpha); cs0mat=new_mat(cm,nalpha);
+  ei0mat=new_mat(cm,nalpha);
 
   /* sorting the replicates */
   printf("\n# sorting the replicates");    
@@ -657,21 +687,18 @@ int do_bootrep()
     dprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
     for(k=0;k<kk;k++) statp[k]=statmats[k][i];
     j=vcalpval(statp,rr,bb,kk,threshold,thvec+i,
-	       pvvec+i,sevec+i,rssvec+i,dfvec+i,&beta,&vmat);
+	       pvvec+i,sevec+i,pv0vec+i,se0vec+i,
+	       rssvec+i,dfvec+i,&beta,&vmat);
     dprintf(1,"\n# ret=%d",j);
     if(vmat==NULL) {
       pfvec[i]=0.0;
       warning("regression degenerated: df[%d]=%g",i+1,dfvec[i]);
       betamat[i][0]=betamat[i][1]=0.0;
-      pv0vec[i]=se0vec[i]=0.0;
     } else {
       pfvec[i]=pochisq(rssvec[i],(int)(dfvec[i]));
       if(pfvec[i]<0.001)
 	warning("theory does not fit well: pfit[%d]=%.4f",i+1,pfvec[i]);
       betamat[i][0]=beta[0]; betamat[i][1]=beta[1];
-      pv0vec[i]=1.0-poz(beta[0]+beta[1]);
-      x=dnorm(beta[0]+beta[1]);
-      se0vec[i]=sqrt(x*x*(vmat[0][0]+vmat[1][1]+vmat[0][1]+vmat[1][0]));
     }
     /* make cntmat for output */
     if(sw_outcnt){
@@ -690,12 +717,17 @@ int do_bootrep()
     for(i=0;i<kk;i++) statp[i]=statmats[i][j];
     for(i=0;i<nalpha;i++) {
       dprintf(1,"\n# invtpval item=%d alpha=%g ",j+1,alphavec[i]);
-      invtpval(statp,rr,bb,kk,alphavec[i],
-	       &(cimat[j][i]),&(csmat[j][i]),&(eimat[j][i]));
+      k=invtpval(statp,rr,bb,kk,alphavec[i], 0,
+		 &(cimat[j][i]),&(csmat[j][i]),&(eimat[j][i]));
+      if(k) printf(" au item=%2d, alpha=%4.2f",
+		   j+1,alphavec[i]);
+      k=invtpval(statp,rr,bb,kk,alphavec[i], 1,
+		 &(ci0mat[j][i]),&(cs0mat[j][i]),&(ei0mat[j][i]));
+      if(k) printf(" bp item=%2d, alpha=%4.2f",
+		   j+1,alphavec[i]);
     }
     putdot();
   }
-
 
   FREE(statp);
   printf("\n# AU-TEST DONE");
@@ -706,7 +738,7 @@ int do_bootrep()
 int do_bootcnt()
 {
   int i,j;
-  double *beta,**vmat,x;
+  double *beta,**vmat;
 
   printf("\n# AU-TEST STARTS");
 
@@ -720,22 +752,19 @@ int do_bootcnt()
   for(i=0;i<cm;i++) {
     dprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
     j=rcalpval(cntmat[i],rr,bb,kk,
-	       pvvec+i,sevec+i,rssvec+i,dfvec+i,&beta,&vmat);
+	       pvvec+i,sevec+i,pv0vec+i,se0vec+1,
+	       rssvec+i,dfvec+i,&beta,&vmat);
     thvec[i]=0.0; /* unused in cntmode */
     dprintf(1,"\n# ret=%d",j);
     if(vmat==NULL) {
       pfvec[i]=0.0;
       warning("regression degenerated: df[%d]=%g",i+1,dfvec[i]);
       betamat[i][0]=betamat[i][1]=0.0;
-      pv0vec[i]=se0vec[i]=0.0;
     } else {
       pfvec[i]=pochisq(rssvec[i],(int)(dfvec[i]));
       if(pfvec[i]<0.001)
 	warning("theory does not fit well: pfit[%d]=%.4f",i+1,pfvec[i]);
       betamat[i][0]=beta[0]; betamat[i][1]=beta[1];
-      pv0vec[i]=1.0-poz(beta[0]+beta[1]);
-      x=dnorm(beta[0]+beta[1]);
-      se0vec[i]=sqrt(x*x*(vmat[0][0]+vmat[1][1]+vmat[0][1]+vmat[1][0]));
     }
   }
 
@@ -743,7 +772,7 @@ int do_bootcnt()
   return 0;
 }
 
-#define MCPVNUM 4
+#define MCPVNUM 5
 #define AUPVNUM 2
 #define MCAUXNUM 0
 #define AUAUXNUM 6
@@ -773,7 +802,8 @@ int write_pv(int sw_mc, int sw_au)
       pvmat[i][j]=npvec[i]; semat[i][j]=nsvec[i]; j++;
       pvmat[i][j]=khpvec[i]; semat[i][j]=khsvec[i]; j++;
       pvmat[i][j]=mcpvec[i]; semat[i][j]=mcsvec[i]; j++;
-      pvmat[i][j]=mspvec[i]; semat[i][j]=mssvec[i]; j++;
+      pvmat[i][j]=khwpvec[i]; semat[i][j]=khwsvec[i]; j++;
+      pvmat[i][j]=mcwpvec[i]; semat[i][j]=mcwsvec[i]; j++;
     }
     if(sw_au){
       pvmat[i][j]=pvvec[i]; semat[i][j]=sevec[i]; j++;
@@ -824,6 +854,10 @@ int write_ci()
   fprintf(fp,"\n# SE:\n"); fwrite_mat(fp,csmat,cm,nalpha);
   fprintf(fp,"\n# EI:\n"); fwrite_mat(fp,eimat,cm,nalpha);
 
+  fprintf(fp,"\n# CI0:\n"); fwrite_mat(fp,ci0mat,cm,nalpha);
+  fprintf(fp,"\n# SE0:\n"); fwrite_mat(fp,cs0mat,cm,nalpha);
+  fprintf(fp,"\n# EI0:\n"); fwrite_mat(fp,ei0mat,cm,nalpha);
+
   if(fname_ci) {fclose(fp); FREE(cbuf);}
   return 0;
 }
@@ -841,7 +875,7 @@ int write_rep()
     fwrite_bvec(fp,rr,kk); fwrite_bivec(fp,bb,kk);
     fwrite_bi(fp,kk);
     for(i=0;i<kk;i++) {
-      fwrite_bmat(fp,statmats[i],cm,bb[i]); putchar('.');
+      fwrite_bmat(fp,statmats[i],cm,bb[i]); putdot();
     }
     fclose(fp); FREE(cbuf);
   } else { /* ascii write to stdout */
@@ -1230,7 +1264,9 @@ double *getseval(double *pval, int m, int nb, double *seval)
 double zvaleps=1.0e-6;
 double zvalbig=6.0;
 int calcpval(double *cnts, double *rr, int *bb, int kk,
-	     double *pv, double *se, double *rss, double *df, 
+	     double *pv, double *se,    /* au */
+	     double *pv0, double *se0,  /* bp */
+	     double *rss, double *df, 
 	     double **betap, double ***vmatp, /* reference only */
 	     double rmin, double rmax)
 {
@@ -1277,12 +1313,15 @@ int calcpval(double *cnts, double *rr, int *bb, int kk,
     if(x>=0.0) *pv=0.0; else *pv=1.0;
     *se=0.0; *rss=0.0;
     beta[0]=beta[1]=0.0; vmat=NULL;
+    *pv0=*pv; *se0=*se;
     i=1; /* degenerate */
   } else {
     lsfit(X,zval,wt,2,kk,beta,rss,&vmat);
     *pv=1.0-poz(beta[0]-beta[1]);
     x=dnorm(beta[0]-beta[1]);
     *se=sqrt(x*x*(vmat[0][0]+vmat[1][1]-vmat[0][1]-vmat[1][0]));
+    *pv0=1.0-poz(beta[0]+beta[1]);
+    *se0=sqrt(x*x*(vmat[0][0]+vmat[1][1]+vmat[0][1]+vmat[1][0]));
     i=0; /* non-degenerate */
   }
 
@@ -1295,7 +1334,9 @@ double pfmin=0.001; /* minimum p-value of diagnostics */
 double rrmin=0.0; /* minimum rr */
 double rrmax=100.0; /* maximum rr */
 int rcalpval(double *cnts, double *rr, int *bb, int kk,
-	     double *pv, double *se, double *rss, double *df, 
+	     double *pv, double *se, 
+	     double *pv0, double *se0, 
+	     double *rss, double *df, 
 	     double **betap, double ***vmatp) /* reference only */
 {
   static int kk0=0;
@@ -1317,7 +1358,7 @@ int rcalpval(double *cnts, double *rr, int *bb, int kk,
   i2=i;
   /* call calcpval until the theory fits well */
   for(i=i1;i<i2;i++) {
-    j=calcpval(cnts,rr,bb,kk,pv,se,rss,df,betap,vmatp,rr0[i],rrmax);
+    j=calcpval(cnts,rr,bb,kk,pv,se,pv0,se0,rss,df,betap,vmatp,rr0[i],rrmax);
     if(j) break;
     pfit=pochisq(*rss,(int)(*df));
     if(pfit>=pfmin) break;
@@ -1331,14 +1372,15 @@ int rcalpval(double *cnts, double *rr, int *bb, int kk,
 #define VCSCALE 0.5     
 #define VCEPS1 0.01
 #define VCEPS2 0.1
-int dfmin=1;
+int dfmin=0;
 int vcalpval(double **statps, double *rr, int *bb, int kk,
 	     double threshold, double *thp,
-	     double *pvp, double *sep, double *rssp, double *dfp, 
+	     double *pvp, double *sep, double *pv0p, double *se0p, 
+	     double *rssp, double *dfp, 
 	     double **betap, double ***vmatp) /* reference only */
 {
   int i,j,idf,idf0;
-  double x,xn,pv,se,rss,df,z0,z,ze0,ze,th;
+  double x,xn,pv,se,rss,df,z0,z,ze0,ze,th,pv0,se0;
   double *beta, **vmat;
   static double *cntvec=NULL, *buf=NULL;
   static int kk0=0;
@@ -1353,15 +1395,16 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
   for(i=0;i<kk;i++) buf[i]=fabs(rr[i]-1.0);
   i=argmin_vec(buf,kk); xn=statps[i][bb[i]/2];
 
-  *pvp=*sep=*rssp=*dfp=*thp=0.0;*betap=NULL;*vmatp=NULL;
-  z=ze=0.0; th=threshold;
+  *pvp=*sep=*pv0p=*se0p=*rssp=*dfp=*thp=0.0;*betap=NULL;*vmatp=NULL;
+  z=ze=0.0; th=threshold; idf0=-2;
   /* iteration */
   for(j=0;j<VCLOOPMAX;j++) {
     x=xn;
     /* get cnts */
     for(i=0;i<kk;i++) cntvec[i]=cntdist(statps[i],bb[i],x,3);
     /* get pvalue */
-    i=calcpval(cntvec,rr,bb,kk,&pv,&se,&rss,&df,&beta,&vmat,rrmin,rrmax);
+    i=calcpval(cntvec,rr,bb,kk,&pv,&se,&pv0,&se0,
+	       &rss,&df,&beta,&vmat,rrmin,rrmax);
     idf=df;
     if(vmat) {
       z=beta[0]-beta[1];
@@ -1381,6 +1424,7 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
       if(th==threshold) xn=th; else th=x;
     } else xn=VCSCALE*th+(1.0-VCSCALE)*x;
     *pvp=pv;*sep=se;*rssp=rss;*dfp=df;*betap=beta;*vmatp=vmat;*thp=x;
+    *pv0p=pv0;*se0p=se0;
     z0=z;ze0=ze; idf0=idf;
     if(x==th) return 0;
   }
@@ -1396,11 +1440,11 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
 #define CILOOPMAX 30
 double cieps=0.1;
 int invtpval(double **statps, double *rr, int *bb, int kk,
-	     double alpha, 
+	     double alpha, int swbp,
 	     double *cival, double *seval, double *eival)
 {
   int i,j;
-  double x1,x2,x,x0,e,pv,pv0,se,se0,rss,df,*beta;
+  double x1,x2,x,x0,e,pv,pv0,se,se0,rss,df,*beta,pv00,se00;
   static double *cntvec=NULL, *buf=NULL;
   static int kk0=0;
 
@@ -1426,13 +1470,15 @@ int invtpval(double **statps, double *rr, int *bb, int kk,
     for(i=0;i<kk;i++) cntvec[i]=cntdist(statps[i],bb[i],x,3);
     /* get pvalue */
     se0=se; pv0=pv;
-    i=calcpval(cntvec,rr,bb,kk, &pv,&se,&rss,&df,&beta,NULL,rrmin,rrmax);
+    i=calcpval(cntvec,rr,bb,kk,&pv,&se,&pv00,&se00,
+	       &rss,&df,&beta,NULL,rrmin,rrmax);
+    if(swbp) {pv=pv00; se=se00;}
     e=pv-alpha;
     dprintf(2,"%g %g %g %g %g %g %g %g ",
 	    pv,se,rss,df,beta[0],beta[1],e,e/se);
     /* check */
     if((pv0-alpha) * (pv-pv0) > 0.0)
-      warning("non-monotone in pval (%g %g) -> (%g %g)",x0,pv0,x,pv);
+      dprintf(1,"non-monotone in ci (%g %g)->(%g %g)",x0,pv0,x,pv);
     if(i) {
       warning("degenerecy in pval df=%g",df);
       *cival=x0; *seval=0.0; *eival=0.0;
@@ -1441,11 +1487,14 @@ int invtpval(double **statps, double *rr, int *bb, int kk,
     if((j>0) && (fabs(e) < se*cieps)) break;
     if(e>0.0) x2=x; else x1=x; /* update */
   }
-  if(j==CILOOPMAX) warning("no convergence: ei=%g",e/se);
-
   *cival=x;
   *seval=se*(x-x0)/(pv-pv0);
   *eival=e/se;
+
+  if(j==CILOOPMAX) {
+    warning("no convergence in ci: ei=%6.3f",e/se);
+    return 1;
+  }
+
   return 0;
 }
-
