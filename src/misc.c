@@ -2,16 +2,14 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2002-02-13 12:09:16 shimo>
+  Time-stamp: <2002-02-27 13:00:51 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
 
   Meschach library:  v_sort, skipjunk (David E. Stewart)
-  Molphy: luinverse (J.Adachi)
 
 */
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +20,7 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.7 2001/08/10 05:57:08 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.8 2002/02/20 08:54:13 shimo Exp shimo $";
 
 /*
   error message handling
@@ -620,100 +618,6 @@ int fwrite_bmat(FILE *fp, double **A, int m, int n)
   return 0;
 }
 
-/*
-  INVERSION OF MATRIX ON LU DECOMPOSITION
-*/
-void luinverse(double **omtrx, double **imtrx, int size) /* From Molphy */
-{
-double eps = 1.0e-20; /* ! */
-	int i, j, k, l, maxi, idx, ix, jx;
-	double sum, tmp, maxb, aw;
-	int *index;
-	double *wk;
-
-	index = (int *) MALLOC((unsigned)size * sizeof(int));
-	wk = (double *) MALLOC((unsigned)size * sizeof(double));
-
-	aw = 1.0;
-	for (i = 0; i < size; i++) {
-		maxb = 0.0;
-		for (j = 0; j < size; j++) {
-			if (fabs(omtrx[i][j]) > maxb)
-				maxb = fabs(omtrx[i][j]);
-		}
-		if (maxb == 0.0) {
-		  error("luinverse: singular matrix");
-		}
-		wk[i] = 1.0 / maxb;
-	}
-	for (j = 0; j < size; j++) {
-		for (i = 0; i < j; i++) {
-			sum = omtrx[i][j];
-			for (k = 0; k < i; k++)
-				sum -= omtrx[i][k] * omtrx[k][j];
-			omtrx[i][j] = sum;
-		}
-		maxb = 0.0;
-		maxi=0;
-		for (i = j; i < size; i++) {
-			sum = omtrx[i][j];
-			for (k = 0; k < j; k++)
-				sum -= omtrx[i][k] * omtrx[k][j];
-			omtrx[i][j] = sum;
-			tmp = wk[i] * fabs(sum);
-			if (tmp >= maxb) {
-				maxb = tmp;
-				maxi = i;
-			}
-		}
-		if (j != maxi) {
-			for (k = 0; k < size; k++) {
-				tmp = omtrx[maxi][k];
-				omtrx[maxi][k] = omtrx[j][k];
-				omtrx[j][k] = tmp;
-			}
-			aw = -aw;
-			wk[maxi] = wk[j];
-		}
-		index[j] = maxi;
-		if (omtrx[j][j] == 0.0)
-			omtrx[j][j] = eps;
-		if (j != size - 1) {
-			tmp = 1.0 / omtrx[j][j];
-			for (i = j + 1; i < size; i++)
-				omtrx[i][j] *= tmp;
-		}
-	}
-	for (jx = 0; jx < size; jx++) {
-		for (ix = 0; ix < size; ix++)
-			wk[ix] = 0.0;
-		wk[jx] = 1.0;
-		l = -1;
-		for (i = 0; i < size; i++) {
-			idx = index[i];
-			sum = wk[idx];
-			wk[idx] = wk[i];
-			if (l != -1) {
-				for (j = l; j < i; j++)
-					sum -= omtrx[i][j] * wk[j];
-			} else if (sum != 0.0)
-				l = i;
-			wk[i] = sum;
-		}
-		for (i = size - 1; i >= 0; i--) {
-			sum = wk[i];
-			for (j = i + 1; j < size; j++)
-				sum -= omtrx[i][j] * wk[j];
-			wk[i] = sum / omtrx[i][i];
-		}
-		for (ix = 0; ix < size; ix++)
-			imtrx[ix][jx] = wk[ix];
-	}
-	FREE(wk);
-	FREE(index);
-} /*_ luinverse */
-
-
 
 /* borrowed from mesch and then corrected a bug (almost rewritten by shimo) */
 
@@ -899,90 +803,6 @@ int sort_vec(double *v, int n)
 /*
   OTHERS
 */	
-
-/*
-  symmetrize a matrix
-*/
-double sym_mat(double **mat, int m)
-{
-  double x,sum;
-  int i,j;
-
-  sum=0.0;
-  for(i=0;i<m;i++)
-    for(j=0;j<i;j++) {
-      sum += fabs(mat[i][j]-mat[j][i]);
-      x = mat[i][j]+mat[j][i];
-      mat[i][j]=mat[j][i]=0.5*x;
-    }
-  return sum;
-}
-
-/* weighted least squares fitting
-
-   X: m x n matrix of predictors
-   Y: n vector of response
-   W: n vector of weight
-
-   min RSS(beta), where
-   RSS = sum_{k=0,...,n} W[k]*(Y[k] - sum_{i=0,...,m} X[i][k]*beta[i])
-
-   returns beta and rss
-   *acmat may refer to the accuracy matrix
-
- */
-
-double *lsfit(double **X, double *Y, double *W,
-	      int m, int n,
-	      double *beta, double *rss, double ***acmat)
-{
-  int i,j,k;
-  double x,y;
-  static double **covmat=NULL, **invmat=NULL, *xyvec=NULL;
-  static int m0=0;
-
-  /* memory allocation */
-  if(m0!=m){
-    covmat=renew_mat(covmat,m,m);
-    invmat=renew_mat(invmat,m,m);
-    xyvec=renew_vec(xyvec,m);
-    m0=m;
-  }
-  if(!beta) beta=new_vec(m);
-  if(acmat) *acmat=invmat; /* reference only */
-
-  /* getting covariances */
-  for(i=0;i<m;i++) {
-    for(x=0.0,k=0;k<n;k++) x+=X[i][k]*Y[k]*W[k];
-    xyvec[i]=x;
-    for(j=0;j<=i;j++) {
-      for(x=0.0,k=0;k<n;k++) x+=X[i][k]*X[j][k]*W[k];
-      covmat[i][j]=covmat[j][i]=x;
-    }
-  }
-
-  /* invmat = inverse matrix of covmat */
-  luinverse(covmat,invmat,m);
-  x=sym_mat(invmat,m);
-  if(x>1e-5) warning("lsfit: covmat singularity %g",x);
-  if(x>1e-3) warning("lsfit: COVARIANCE MATRIX IS SINGULAR");
-
-  /* calculate the beta */
-  for(i=0;i<m;i++) {
-    for(x=0.0,j=0;j<m;j++) x+=invmat[i][j]*xyvec[j];
-    beta[i]=x;
-  }
-
-  /* obtain the rss */
-  for(x=0.0,k=0;k<n;k++) {
-    for(y=0.0,i=0;i<m;i++) y+=X[i][k]*beta[i];
-    x+=W[k]*(Y[k]-y)*(Y[k]-y);
-  }
-  *rss=x;
-  
-  return beta;
-}
-
 
 
 int argmin_vec(double *vec, int n)

@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2002-02-10 18:23:31 shimo>
-  $Id: misc.h,v 1.6 2001/08/10 05:57:20 shimo Exp shimo $
+  Time-stamp: <2002-02-27 13:02:45 shimo>
+  $Id: misc.h,v 1.7 2002/02/20 08:54:40 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -98,17 +98,12 @@ int fwrite_bvec(FILE *fp, double *A, int m);
 int fwrite_bmat(FILE *fp, double **A, int m, int n);
 
 /* misc */
-void luinverse(double **omtrx, double **imtrx, int size); /* From Molphy */
 void sort(double *xve, int *order, int dim);
 void isort(int *xve, int *order, int dim);
 void psort(void **xve, int *order, int dim,
 	   int (*compar)(void *, void *));
 int *perm_ivec(int *px, int *iv, int n);
 
-double sym_mat(double **mat, int m);
-double *lsfit(double **X, double *Y, double *W,
-	      int m, int n,
-	      double *beta, double *rss, double ***acmat);
 int sort_vec(double *v, int n);
 int argmin_vec(double *vec, int n);
 int argmax_vec(double *vec, int n);
