@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2002-08-20 22:53:02 shimo>
+  Time-stamp: <2002-09-03 10:52:42 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.11 2002/04/18 04:21:35 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.12 2002/08/20 15:19:16 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -40,27 +40,18 @@ void print_pvname(char *name)
   if(sw_printse)   printf(" %7s","(se)");
 }
 
+void print_pvcol(int col)
+{
+  printf(" %6d",col);
+  if(sw_printse)   printf(" %7s","");
+}
+
 void print_pval(double pv, double se)
 {
   print_real(pv);
   if(sw_printse)   printf(" (%5.3f)",se);
 }
 
-
-int *permrev(int *order, int *rev, int n)
-{
-  int i;
-  static int m=0, *sav=NULL;
-  if(n>m) {sav=renew_ivec(sav,n); m=n;}
-  if(!rev) rev=new_ivec(n);
-  for(i=0;i<n;i++) {rev[i]=i; sav[i]=order[i];}
-  isort(order,rev,n);
-  for(i=0;i<n;i++) {
-    /*    if(order[i]!=i) warning("invalid perm vector"); */
-    order[i]=sav[i];
-  }
-  return rev;
-}
 
 int sw_help=0;
 int sw_verpose=0;
@@ -115,7 +106,7 @@ int main(int argc, char** argv)
   double **pvmat2;
   int sw_bp,sw_ba,sw_mc,sw_au,fileid,outbit;
   double **outmat;
-  double x,y,z;
+  double x,y,z,*xp,*yp;
 
   fnamev=NEW_A(argc-1,char*);
   nfile=0;
@@ -151,7 +142,10 @@ int main(int argc, char** argv)
       sw_cong=1;
       if(i+1<argc) {fname_cong=argv[i+1]; i++;}
     } else if(streq(argv[i],"-s")) {
-      sw_sort=1;
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&sw_sort) != 1)
+	byebye();
+      i+=1;
     } else if(streq(argv[i],"-e")) {
       sw_printse=1;
     } else if(streq(argv[i],"-v")) {
@@ -197,7 +191,25 @@ int main(int argc, char** argv)
     if(!cm0 || cm<cm0) cm0=cm; /* take the min */
     if(cm>cm1) cm1=cm; /* take the max */
 
-    revordv=permrev(orderv,NULL,cm); /* for sorting the item */
+    revordv=new_ivec(cm);
+    for(i=0;i<cm;i++) revordv[i]=i;
+    if(sw_sort) {
+      xp=new_vec(cm);
+      /* sw_sort = 1:item, 2:lik, 3..(pvnum+2):pvs... */
+      j=sw_sort; if(j<0) {j=-j;};
+      if(j==1) { 
+	for(i=0;i<cm;i++) xp[i]=(double)orderv[i];
+      } else if(j==2) {
+	for(i=0;i<cm;i++) xp[i]=obsvec[i];
+      } else if(j<pvnum+3) {
+	for(i=0;i<cm;i++) xp[i]=-pvmat[i][j-3];
+      } else {
+	error("-s # <= %d\n",pvnum+2);
+      }
+      if(sw_sort<0) for(i=0;i<cm;i++) xp[i]=-xp[i];
+      sort(xp,revordv,cm);
+      free_vec(xp);
+    }
 
     sw_bp=sw_ba=sw_au=sw_mc=j=0;
     if(outbit & BPPVSW) {sw_bp=1; jbp=j; j+=BPPVNUM;}
@@ -210,6 +222,18 @@ int main(int argc, char** argv)
     sw_au = sw_au && sw_pau && sw_prt;
     sw_mc = sw_mc && sw_pmc && sw_prt;
 
+    if(sw_prt && sw_verpose) {
+      printf("\n# %4d %4d %6d", 0,1,2);
+      if(sw_au) 
+	for(i=jau;i<jau+AUPVNUM;i++) print_pvcol(3+i);
+      printf(" |");
+      if(sw_bp) 
+	for(i=jbp;i<jbp+BPPVNUM;i++) print_pvcol(3+i);
+      if(sw_ba) 
+	for(i=jba;i<jba+BAPVNUM;i++) print_pvcol(3+i);
+      if(sw_mc) 
+	for(i=jmc;i<jmc+MCPVNUM;i++) print_pvcol(3+i);
+    }
     if(sw_prt) printf("\n# %4s %4s %6s", "rank","item","obs");
     if(sw_au) {
       print_pvname("au");
@@ -235,7 +259,7 @@ int main(int argc, char** argv)
     }
 
     for(i=0;i<cm;i++) {
-      if(sw_sort) ir=revordv[i]; else ir=i;
+      ir=revordv[i];
       if(sw_prt) printf("\n# %4d %4d %6.1f",ir+1,orderv[ir]+labeladd,obsvec[ir]);
       j=0;
       if(sw_au) {
