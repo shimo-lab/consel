@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2001-06-07 10:04:20 shimo>
+  Time-stamp: <2001-06-23 14:50:28 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -22,7 +22,7 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.5 2001/05/29 06:29:39 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.6 2001/06/08 01:23:37 shimo Exp shimo $";
 
 /*
   error message handling
@@ -133,6 +133,29 @@ void free_mat(double **buf)
   if(buf && buf[0]) FREE(buf[0]);
   if(buf) FREE(buf);
 }
+
+/* large matrix (useful when large linear memory is not allocated */
+double **new_lmat(int m, int n)
+{
+  double **base;
+  int i;
+
+  if(m*n==0) return NULL;
+  base = (double **)MALLOC(sizeof(double*) * m);
+  for(i=0;i<m;i++) base[i] = new_vec(n);
+
+  return base;
+}
+
+void free_lmat(double **buf, int m)
+{
+  int i;
+  if(!buf) return;
+  for(i=0;i<m;i++) FREE(buf[i]);
+  FREE(buf);
+}
+
+
 
 /* skipjunk -- skips white spaces and strings of the form #....\n
    Here .... is a comment string 
@@ -336,6 +359,28 @@ double **freread_mat(FILE *fp, int *mp, int *np, double **old)
   return A;
 }
 
+double **fread_lmat(FILE *fp, int *mp, int *np)
+{
+  int i,j,m,n;
+  double **A;
+
+  m=fread_i(fp); /* number of items (rows) */
+  n=fread_i(fp); /* number of samples (columns) */
+  if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
+  if(*np>0 && *np != n) error("size of columns mismatch in mat");
+
+  if(m*n==0) return NULL;
+
+  A = new_lmat(m,n);
+
+  for(i=0;i<m;i++) for(j=0;j<n;j++) A[i][j]=fread_d(fp);
+
+  *mp = m;
+  *np = n;
+  return A;
+}
+
+
 static int mcol=5;
 static char    *format = "%14.9g ";
 
@@ -469,6 +514,22 @@ double **fread_bmat(FILE *fp, int *mp, int *np)
   return A;
 }
 
+double **fread_blmat(FILE *fp, int *mp, int *np)
+{
+  int m,n,i;
+  double **A;
+
+  m=fread_bi(fp); /* number of items (rows) */
+  n=fread_bi(fp); /* number of samples (columns) */
+  if(*mp>0 && *mp != m) error("size of rows mismatch in bmat");
+  if(*np>0 && *np != n) error("size of columns mismatch in bmat");
+  A = new_lmat(m,n);
+  for(i=0;i<m;i++)
+    if(fread(A[i],sizeof(double),n,fp)!=n) error("cant read bmat");
+  *mp = m; *np = n;
+  return A;
+}
+
 double **freread_bmat(FILE *fp, int *mp, int *np, double **old)
 {
   int m,n;
@@ -512,9 +573,11 @@ int fwrite_bvec(FILE *fp, double *A, int m)
 
 int fwrite_bmat(FILE *fp, double **A, int m, int n)
 {
+  int i;
   fwrite_bi(fp,m);
   fwrite_bi(fp,n);
-  if(fwrite(A[0],sizeof(double),m*n,fp)!=(m*n)) error("cant write bmat");
+  for(i=0;i<m;i++)
+    if(fwrite(A[i],sizeof(double),n,fp)!=n) error("cant write bmat");
   return 0;
 }
 

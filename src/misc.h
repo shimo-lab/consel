@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2001-05-29 12:11:23 shimo>
-  $Id: misc.h,v 1.4 2001/05/05 09:05:22 shimo Exp shimo $
+  Time-stamp: <2001-06-23 13:13:02 shimo>
+  $Id: misc.h,v 1.5 2001/05/29 06:30:02 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -42,6 +42,8 @@ void *myrealloc(void *old, size_t size);
 double **renew_mat(double **old, int m, int n);
 double **new_mat(int m, int n);
 void free_mat(double **buf);
+double **new_lmat(int m, int n);
+void free_lmat(double **buf, int m);
 
 /* ascii read/write */
 int fskipjunk(FILE *fp);
@@ -61,7 +63,9 @@ double *fread_vec(FILE *fp, int *mp);
 int *fread_ivec(FILE *fp, int *mp);
 #define read_ivec(mp) fread_ivec(STDIN,mp)
 double **fread_mat(FILE *fp, int *mp, int *np);
+double **fread_lmat(FILE *fp, int *mp, int *np);
 #define read_mat(mp,np) fread_mat(STDIN,mp,np)
+#define read_lmat(mp,np) fread_lmat(STDIN,mp,np)
 double **freread_mat(FILE *fp, int *mp, int *np, double **buf);
 #define reread_mat(mp,np,buf) fread_mat(STDIN,mp,np,buf)
 int fwrite_i(FILE *fp, int x);
@@ -81,6 +85,7 @@ double fread_bd(FILE *fp);
 int *fread_bivec(FILE *fp, int *mp);
 double *fread_bvec(FILE *fp, int *mp);
 double **fread_bmat(FILE *fp, int *mp, int *np);
+double **fread_blmat(FILE *fp, int *mp, int *np);
 double **freread_bmat(FILE *fp, int *mp, int *np, double **old);
 int fwrite_bi(FILE *fp, int x);
 int fwrite_bd(FILE *fp, double x);
