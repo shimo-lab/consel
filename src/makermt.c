@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-04-12 14:21:24 shimo>
+  Time-stamp: <2001-04-16 15:02:30 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.1 2001/04/11 23:27:19 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.2 2001/04/12 05:43:30 shimo Exp shimo $";
 
 
 /*
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 {
   /* working variables */
   int i,j;
-  double x;
+  double x,t0,t1;
   FILE *fp;
 
   printf("# %s",rcsid);
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
   repmats=(double ***)MALLOC((sizeof(double **))*kk);
   for(i=0;i<kk;i++) repmats[i]=new_mat(mm,bb[i]);
   bn=new_ivec(kk);
-  
+
   /* calculate the log-likelihoods */
   for(i=0;i<mm;i++) {
     x=0; for(j=0;j<nn;j++) x+=datmat[i][j];
@@ -178,11 +178,17 @@ int main(int argc, char** argv)
   }
 
   /* generating the replicates by resampling*/
+  for(i=j=0;i<kk;i++) j+=bb[i];
+  printf("\n# start generating total %d replicates for %d items",j,mm);
+  fflush(STDOUT);
+  t0=get_time();
   for(i=0;i<kk;i++) {
     bn[i]=(int)(rr[i]*nn); /* sample size for bootstrap */
     rr[i]=(double)bn[i]/nn; /* recalculate rr for integer adjustment */
     scaleboot(datmat,repmats[i],mm,nn,bn[i],bb[i]);
   }
+  t1=get_time();
+  printf("\n# time elapsed for bootstrap t=%g sec",t1-t0);
 
   /* saving the results */
   if(fname_vt!=NULL) {
