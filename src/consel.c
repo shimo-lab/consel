@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-01-10 21:40:35 shimo>
+  Time-stamp: <2002-01-10 22:19:39 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.7 2002/01/10 02:18:38 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.8 2002/01/10 12:46:57 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -156,6 +156,7 @@ double *pv0vec, *se0vec; /* pvalue for the derived naive method */
 
 /* bayes posterior prob */
 double *bapvec=NULL, *basvec=NULL;
+double bapcoef=1.0;
 
 /* for msboot pv */
 double **betamat=NULL; /* (2,cm)-matrix of signed distance, curvature */
@@ -266,11 +267,13 @@ int main(int argc, char** argv)
       i+=1;
     } else if(streq(argv[i],"--no_sort")) {
       sw_nosort=1;
-    } else if(streq(argv[i],"--skip_ba")) {
+    } else if(streq(argv[i],"--no_bp")) {
+      sw_dobp=0;
+    } else if(streq(argv[i],"--no_ba")) {
       sw_doba=0;
-    } else if(streq(argv[i],"--skip_mc")) {
+    } else if(streq(argv[i],"--no_sh")) {
       sw_domc=0;
-    } else if(streq(argv[i],"--skip_au")) {
+    } else if(streq(argv[i],"--no_au")) {
       sw_doau=0;
     } else if(streq(argv[i],"--smooth_cnt")) {
       sw_smoothcnt=1;
@@ -284,6 +287,11 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"--kappa")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&kappa) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--bap")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&bapcoef) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"--cieps")) {
@@ -691,7 +699,7 @@ int do_batest()
   bapvec=new_vec(cm); basvec=new_vec(cm);
   bapp=new_vec(mm);
   x=-HUGENUM; for(i=0;i<mm;i++) if(datvec[i]>x) x=datvec[i];
-  y=0.0; for(i=0;i<mm;i++) {y+=bapp[i]=exp(datvec[i]-x);}
+  y=0.0; for(i=0;i<mm;i++) {y+=bapp[i]=exp(bapcoef*(datvec[i]-x));}
   for(i=0;i<mm;i++) bapp[i]=bapp[i]/y;
 
   for(i=0;i<cm;i++) {
