@@ -1,9 +1,11 @@
 /* rand.h 
-$Id: rand.h,v 1.5 2002/02/28 07:44:27 shimo Exp shimo $
+$Id: rand.h,v 1.6 2002/03/01 05:30:02 shimo Exp shimo $
 */
-double mrand(void);      /* returns random # in [0,1) */
-void smrand(int seed),   /* seeds mrand() */
-  mrandlist(double *x, int len);  /* generates len random numbers */
+
+double genrand_real2(void); /* returns random # in [0,1) */
+#define mrand() genrand_real2()
+void smrand(unsigned long seed);   /* seeds mrand() */
+void mrandlist(double *x, int len);  /* generates len random numbers */
 
 #define runif() mrand() /* defines uniform dist on [0,1] */
 double rnorm(void);  /* normal dist */

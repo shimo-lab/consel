@@ -2,7 +2,7 @@
 
   makerep.c : make rep-file by the RELL method
 
-  Time-stamp: <2001-06-23 11:46:53 shimo>
+  Time-stamp: <2002-08-30 21:51:01 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makerep.c,v 1.1 2001/06/22 05:06:22 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makerep.c,v 1.2 2001/08/10 06:05:31 shimo Exp shimo $";
 
 typedef struct {
   double *ve;
@@ -30,7 +30,7 @@ typedef struct {
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
 
-int seed=123;
+unsigned long seed=0;
 char *fname_pa = NULL; char *fext_pa = ".pa";
 char *fname_mt = NULL; char *fext_mt = ".mt";
 char *fname_vt = NULL; char *fext_vt = ".vt";
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
       j++;
     } else if(streq(argv[i],"-s")) {
       if(i+1>=argc ||
-	 sscanf(argv[i+1],"%d",&seed) != 1)
+	 sscanf(argv[i+1],"%lu",&seed) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"-p")) {
@@ -148,7 +148,7 @@ int main(int argc, char** argv)
   } else {
     kk=kk0; rr=rr0; bb=bb0; 
   }
-  printf("\n# seed:%d",seed);
+  printf("\n# seed:%lu",seed);
   printf("\n# K:%d",kk);
   printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
   printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);

@@ -1,6 +1,6 @@
 /* randrep.c
 
-  Time-stamp: <2001-06-27 15:18:57 shimo>
+  Time-stamp: <2002-08-30 21:50:42 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,7 +18,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: randrep.c,v 1.3 2001/06/08 01:22:35 shimo Exp shimo $";
+static const char rcsid[] = "$Id: randrep.c,v 1.4 2001/08/10 05:59:43 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -36,7 +36,7 @@ char *fnamenum(char *basename, int num, int max)
   return buf;
 }
 
-int seed=123;
+unsigned long seed=0;
 char *fname_pa = NULL;
 char *fname_rep = NULL;
 char *fname_rmt = NULL;
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
       j++;
     } else if(streq(argv[i],"-s")) {
       if(i+1>=argc ||
-	 sscanf(argv[i+1],"%d",&seed) != 1)
+	 sscanf(argv[i+1],"%lu",&seed) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"-p")) {
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
   rr1=new_vec(kk);
   for(i=0;i<kk;i++) rr1[i]=rr[i]; /* save the original */
 
-  printf("\n# seed:%d",seed);
+  printf("\n# seed:%lu",seed);
   printf("\n# K:%d",kk);
   printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
   printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
