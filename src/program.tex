@@ -1,6 +1,6 @@
 % aut/tex/program.tex
-% $Id$
-\def\documentid{\getTime-stamp: "2001-08-10 15:18:28 shimo"}
+% $Id: program.tex,v 1.1 2001/08/10 06:18:32 shimo Exp shimo $
+\def\documentid{\getTime-stamp: "2001-12-10 15:28:57 shimo"}
 \def\getTime-stamp: "#1"{#1}
 
 \documentclass[12pt]{article}
@@ -44,7 +44,7 @@
 
 {aut/src/program.tex\hfill \documentid}
 \begin{center}
- \bf\large CONSEL program user's guide (V0.1b)\\[3ex]
+ \bf\large CONSEL program user's guide (V0.1c)\\[3ex]
  Hidetoshi Shimodaira\\[2ex]
  \normalsize
  The Institute of Statistical Mathematics\\
@@ -135,13 +135,22 @@ seqmt --paml foo
        trees. I do not know what is it called in PAUP, but a version of
        PAUP produces the file something like below.
 \begin{verbatim}
-Tree	-lnL
-1	2345.033
+Tree    -lnL
+1       2345.033
 
 Single-site ln likelihoods for tree 1
-1	-2.3434
-2	-1.5679
-3	-2.3223
+1       -2.3434
+2       -1.5679
+3       -2.3223
+...
+\end{verbatim}
+       Otherwise the later version may output
+\begin{verbatim}
+Tree    -lnL    Site    -lnL
+1       2345.033
+                1       2.3434
+                2       1.5679
+                3       2.3223
 ...
 \end{verbatim}
        Let us call it {\tt foo.txt} here.  It is converted to {\tt
@@ -319,9 +328,10 @@ reads {\tt foo.pv} and shows the contents like below.
 There are 15 rows of the table, and each row corresponds to one of the
 items compared for selection. The items are sorted in the decreasing
 order of $Y_i$; the first column is the order of the item starting from
-1 to $M=15$. The second column shows the index $i$ of the item. The
-third column shows the test statistics \[ T_i = \max_{j=1,\ldots,M} Y_j
-- Y_i \] for the items with ${\rm rank} \ge 2$. They are equivalent to
+1 to $M=15$.  The second column shows the index $i$ of the item; we may
+use the option {\tt -s} to sort the lines by the index $i$.  The third
+column shows the test statistics \[ T_i = \max_{j=1,\ldots,M} Y_j - Y_i
+\] for the items with ${\rm rank} \ge 2$. They are equivalent to
 \begin{equation}
  T_i = \max_{j\neq i} (Y_j - Y_i), \quad i=1,\ldots,M, \label{eq:ti}
 \end{equation}
@@ -378,6 +388,7 @@ There are several options to the command {\tt catpv}.
 	    distance. c:~curvature of the boundary. th:~the actual
 	    threshold used for au and np.
  \item[\tt -e] prints the standard errors of the $p$-values.
+ \item[\tt -s] sort the lines by the item index.
  \item[\tt --no{\_}au]  suppresses printing au and np.
  \item[\tt --no{\_}sh]  suppresses printing bp, kh, sh, wkh, and wsh.
  \item[\tt --no{\_}print]  suppresses printing.
@@ -617,7 +628,7 @@ $1,\ldots,m$ of the table above are specified in {\tt mam15.log} given
 below.
 {\small
 \begin{verbatim}
-# $Id: treeass.c,v 1.3 2001/05/29 06:32:22 shimo Exp $
+# $Id: program.tex,v 1.1 2001/08/10 06:18:32 shimo Exp shimo $
 # reading mam15.tpl
 # 15 trees read
 # 15 trees, 6 leaves
@@ -1065,27 +1076,26 @@ Text files: {\tt mt}, {\tt vt}, {\tt pv}, {\tt ci}, {\tt pa}, {\tt ass},
 ``singed distance'' and ``curvature''
 
 \begin{itemize}
- \item Efron, B. (1985) Bootstrap confidence intervals for a class of
-       parametric problems. Biometrika, 72, 45-58.
- \item Efron, B., Halloran, E. and Holmes, S. (1996) Bootstrap
+ \item Efron, B. (1985) ``Bootstrap confidence intervals for a class of
+       parametric problems,'' {\it Biometrika,} {\bf 72}, 45-58.
+ \item Efron, B., Halloran, E. and Holmes, S. (1996) ``Bootstrap
        confidence levels for phylogenetic
-       trees. Proc. Natl. Acad. Sci. USA, 93, 13429-13434.
- \item Efron, B. and Tibshirani, R. (1998) The problem of
-       regions. Ann. Statist., 26, 1687-1718.
- \item Shimodaira, H. (2000) Another calculation of the p-value for the
+       trees,'' {\it Proc. Natl. Acad. Sci. USA,} {\bf 93}, 13429-13434.
+ \item Efron, B. and Tibshirani, R. (1998) ``The problem of
+       regions,'' {\it Ann. Statist.,} {\bf 26}, 1687-1718.
+ \item Shimodaira, H. (2000) ``Another calculation of the p-value for the
        problem of regions using the scaled bootstrap
-       resamplings. Technical Report No. 2000-35, Stanford University.
- \item Shimodaira, H. (submitted) Assessing the confidence of
-       phylogenetic tree selection.
- \item Shimodaira, H. and Hasegawa, M. (accepted) CONSEL:~a program for
-       assessing the confidence of phylogenetic tree selection. 
-       Bioinformatics.
+       resamplings,'' Technical Report No. 2000-35, Stanford University.
+ \item Shimodaira, H. (submitted) ``Approximately unbiased test of
+       phylogenetic tree selection," {\it Systematic Biology}.
+ \item Shimodaira, H. and Hasegawa, M. (2001) ``CONSEL:~for assessing the
+       confidence of phylogenetic tree selection,''  {\it
+       Bioinformatics,} (inpress).
 \end{itemize}
 
-Please refer to Shimodaira and Hasegawa (submitted) for the program
-CONSEL, and refer to Shimodaira (submitted) for the theory of the
-approximately unbiased test with application to the phylogenetic
-inference.
+Please refer to Shimodaira and Hasegawa (2001) for the program CONSEL,
+and refer to Shimodaira (submitted) for the theory of the approximately
+unbiased test with application to the phylogenetic inference.
 
 \end{document}
 
