@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-06-01 07:50:38 shimo>
+  Time-stamp: <2001-06-23 14:24:04 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -22,7 +22,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.7 2001/05/29 06:28:38 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.8 2001/06/08 01:22:04 shimo Exp shimo $";
 
 
 /*
@@ -88,8 +88,9 @@ char *fext_vt = ".vt";
 enum seqfile {SEQ_MT, SEQ_MOLPHY, SEQ_PAML, SEQ_PAUP};
 int seqmode=SEQ_MT;
 char *fext_molphy=".lls";
-char *fext_paml=".lfh";
+char *fext_paml=".lnf";
 char *fext_paup=".txt";
+int sw_lmat=0;
 
 /* msboot parameter */
 int kk,*bb,*bn;
@@ -102,6 +103,7 @@ double **datmat=NULL;
 int mm; int nn;
 double ***repmats=NULL;
 double *datvec=NULL;
+
 
 int main(int argc, char** argv)
 {
@@ -135,6 +137,8 @@ int main(int argc, char** argv)
       if(i+1>=argc) byebye();
       fname_vt=argv[i+1];
       i+=1;
+    } else if(streq(argv[i],"-L")) {
+      sw_lmat=1;
     } else if(streq(argv[i],"--molphy")) {
       seqmode=SEQ_MOLPHY;
     } else if(streq(argv[i],"--paml")) {
@@ -198,7 +202,7 @@ int main(int argc, char** argv)
   /* allocating buffers */
   datvec=new_vec(mm);
   repmats=(double ***)MALLOC((sizeof(double **))*kk);
-  for(i=0;i<kk;i++) repmats[i]=new_mat(mm,bb[i]);
+  for(i=0;i<kk;i++) repmats[i]=sw_lmat?new_lmat(mm,bb[i]):new_mat(mm,bb[i]);
   bn=new_ivec(kk);
 
   /* calculate the log-likelihoods */
