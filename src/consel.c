@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-02-17 21:47:54 shimo>
+  Time-stamp: <2002-02-28 17:19:24 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,13 +36,14 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.10 2002/01/24 03:03:13 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.11 2002/02/20 08:53:20 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include "rand.h"
 #include "misc.h"
+#include "opt.h"
 
 typedef struct {
   double *ve;
@@ -119,6 +120,18 @@ int *asslen=NULL; /* sorted asslen */
 int **cassvec=NULL; /* complement of assvec used in mctest */
 int *orderv=NULL; /* cm-vector of the item id's */
 
+
+/* chidim */
+double chidimarg=0.0; /* default dimension */
+int chinumgrid=10; /* number of grids */
+int sw_chidimopt=1; /* optimize dimension */
+int sw_chidimgs=1; /* use golden section search */
+double chieps=1e-10;
+double chidimmin=2.0;
+
+/* for multiple rmt */
+int mf=1;
+
 /* for rmt file */
 double ***repmats=NULL; /* (kk,mm,bb[i])-array of replicates */
 double *datvec=NULL; /* mm-vector of data */
@@ -165,7 +178,7 @@ double *bapvec=NULL;
 double bapcoef=1.0;
 
 /* for msboot pv */
-double **betamat=NULL; /* (2,cm)-matrix of signed distance, curvature */
+double **betamat=NULL; /* (3,cm)-matrix of signed distance, curvature, dim */
 double *rssvec=NULL; /* cm-vec rss */
 double *dfvec=NULL; /* cm-vec df */
 double *pfvec=NULL; /* cm-vec pvalue of the diagnostic */
@@ -204,7 +217,10 @@ int sw_domc=1; /* dont skip mc-tests */
 int sw_doau=1; /* dont skip au-tests */
 int sw_dobp=1; /* dont skip bp-tests */
 int sw_nosort=0; /* dont sort the items */
-int sw_mle=1; /* use mle DEFAULT*/
+#define FITMODE_WLS 0
+#define FITMODE_MLE 1
+#define FITMODE_CHI 2
+int sw_fitmode=FITMODE_MLE; /* use mle DEFAULT*/
 int sw_fastrep=0; /* rescaling from r=1 */
 int sw_multi=0; /* multiple input files */
 int sw_cong=1; /* overall congruence */
@@ -299,6 +315,30 @@ int main(int argc, char** argv)
 	 sscanf(argv[i+1],"%lf",&kappa) != 1)
 	byebye();
       i+=1;
+    } else if(streq(argv[i],"--chi_dim")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&chidimarg) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--chi_dimmin")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&chidimmin) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--chi_grid")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&chinumgrid) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--chi_opt")) {
+      sw_chidimopt=1; sw_chidimgs=1;
+      sw_fitmode=FITMODE_CHI;
+    } else if(streq(argv[i],"--chi_noopt")) {
+      sw_chidimopt=0; sw_chidimgs=0;
+      sw_fitmode=FITMODE_CHI;
+    } else if(streq(argv[i],"--chi_nogs")) {
+      sw_chidimopt=1; sw_chidimgs=0;
+      sw_fitmode=FITMODE_CHI;
     } else if(streq(argv[i],"--ppcoef")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&bapcoef) != 1)
@@ -335,9 +375,11 @@ int main(int argc, char** argv)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"--mle")) {
-      sw_mle=1;
+      sw_fitmode=FITMODE_MLE;
     } else if(streq(argv[i],"--wls")) {
-      sw_mle=0;
+      sw_fitmode=FITMODE_WLS;
+    } else if(streq(argv[i],"--chi")) {
+      sw_fitmode=FITMODE_CHI;
     } else if(streq(argv[i],"-f")) {
       sw_fastrep=1;
     } else if(streq(argv[i],"-g")) {
@@ -805,7 +847,6 @@ int do_rmtmultimode()
   /* pval */
   double **bapvecm;
   /* for multiple rmt file */
-  int mf=0;
   double **datvecm=NULL; /* mf x mm-vector of data */
   int **bbm=NULL; /* mf x kk-vector of no.'s of replicates */
   double **rrm=NULL; /* mf x kk-vector of relative sample sizes */
@@ -1169,14 +1210,15 @@ int do_mctest()
 int do_bootrep()
 {
   int i,j,k;
-  double **statp,*beta,**vmat;
+  double **statp,*beta;
+  double t0,t1;
 
   printf("\n# AU-TEST STARTS");
 
   /* memory alloc for pv */
   pvvec=new_vec(cm); sevec=new_vec(cm);
   pv0vec=new_vec(cm); se0vec=new_vec(cm);
-  betamat=new_mat(cm,2); 
+  betamat=new_mat(cm,3); 
   rssvec=new_vec(cm); dfvec=new_vec(cm); pfvec=new_vec(cm);
   thvec=new_vec(cm); 
   statp=NEW_A(kk,double*);
@@ -1198,23 +1240,33 @@ int do_bootrep()
   }
 
   /* calculate au-pvalues */
-  printf("\n# calculating approximately unbiased p-values");
+  printf("\n# calculating approximately unbiased p-values by ");
+  switch(sw_fitmode) {
+  case FITMODE_WLS:
+    printf("WLS (very fast)"); break;
+  case FITMODE_MLE:
+    printf("MLE (fast)"); break;
+  case FITMODE_CHI:
+    printf("CHI (slow)"); break;
+  }
+  printf(" fitting"); fflush(STDOUT);
+  t0=get_time();
   for(i=0;i<cm;i++) {
     dprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
     for(k=0;k<kk;k++) statp[k]=statmats[k][i];
     j=vcalpval(statp,rr,bb,kk,threshold,thvec+i,
 	       pvvec+i,sevec+i,pv0vec+i,se0vec+i,
-	       rssvec+i,dfvec+i,&beta,&vmat,kappa);
+	       rssvec+i,dfvec+i,&beta,NULL,kappa);
     dprintf(1,"\n# ret=%d",j);
-    if(vmat==NULL) {
+    if(j) {
       pfvec[i]=0.0;
       warning("regression degenerated: df[%d]=%g",i+1,dfvec[i]);
-      betamat[i][0]=betamat[i][1]=0.0;
+      betamat[i][0]=betamat[i][1]=betamat[i][2]=0.0;
     } else {
       pfvec[i]=pochisq(rssvec[i],(int)(dfvec[i]));
       if(pfvec[i]<0.01)
 	warning("theory does not fit well: pfit[%d]=%.4f",i+1,pfvec[i]);
-      betamat[i][0]=beta[0]; betamat[i][1]=beta[1];
+      betamat[i][0]=beta[0]; betamat[i][1]=beta[1]; betamat[i][2]=beta[2];
     }
     /* make cntmat for output */
     if(sw_outcnt){
@@ -1224,11 +1276,14 @@ int do_bootrep()
     }
     putdot();
   }
+  t1=get_time();
+  printf("\n# time elapsed for AU test is t=%g sec",t1-t0);
 
   /* ci */
   printf("\n# ALPHA:");
   for(i=0;i<nalpha;i++) printf("%g ",alphavec[i]);
   printf("\n# calculating confidence intervals");
+  if(sw_fitmode==FITMODE_CHI) sw_fitmode=FITMODE_MLE;
   for(j=0;j<cm;j++) {
     for(i=0;i<kk;i++) statp[i]=statmats[i][j];
     for(i=0;i<nalpha;i++) {
@@ -1254,35 +1309,50 @@ int do_bootrep()
 int do_bootcnt()
 {
   int i,j;
-  double *beta,**vmat;
+  double *beta;
+  double t0,t1;
 
   printf("\n# AU-TEST STARTS");
 
   /* memory alloc for pv */
   pvvec=new_vec(cm); sevec=new_vec(cm);
   pv0vec=new_vec(cm); se0vec=new_vec(cm);
-  betamat=new_mat(cm,2); 
+  betamat=new_mat(cm,3); 
   rssvec=new_vec(cm); dfvec=new_vec(cm); pfvec=new_vec(cm);
   thvec=new_vec(cm); 
 
+  printf("\n# calculating approximately unbiased p-values by ");
+  switch(sw_fitmode) {
+  case FITMODE_WLS:
+    printf("WLS (very fast)"); break;
+  case FITMODE_MLE:
+    printf("MLE (fast)"); break;
+  case FITMODE_CHI:
+    printf("CHI (slow)"); break;
+  }
+  printf(" fitting"); fflush(STDOUT);
+  t0=get_time();
   for(i=0;i<cm;i++) {
     dprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
     j=rcalpval(cntmat[i],rrmat[i],bbmat[i],kk,
 	       pvvec+i,sevec+i,pv0vec+i,se0vec+1,
-	       rssvec+i,dfvec+i,&beta,&vmat,kappa);
+	       rssvec+i,dfvec+i,&beta,NULL,kappa);
     thvec[i]=threshold; /* unused in cntmode */
     dprintf(1,"\n# ret=%d",j);
-    if(vmat==NULL) {
+    if(j) {
       pfvec[i]=0.0;
       warning("regression degenerated: df[%d]=%g",i+1,dfvec[i]);
-      betamat[i][0]=betamat[i][1]=0.0;
+      betamat[i][0]=betamat[i][1]=betamat[i][2]=0.0;
     } else {
       pfvec[i]=pochisq(rssvec[i],(int)(dfvec[i]));
       if(pfvec[i]<0.01)
 	warning("theory does not fit well: pfit[%d]=%.4f",i+1,pfvec[i]);
-      betamat[i][0]=beta[0]; betamat[i][1]=beta[1];
+      betamat[i][0]=beta[0]; betamat[i][1]=beta[1]; betamat[i][2]=beta[2];
     }
+    putdot();
   }
+  t1=get_time();
+  printf("\n# time elapsed for AU test is t=%g sec",t1-t0);
 
   printf("\n# AU-TEST DONE");  
   return 0;
@@ -1305,7 +1375,7 @@ int do_bootcnt()
 #define BPAUXNUM 0
 #define BAAUXNUM 0
 #define MCAUXNUM 0
-#define AUAUXNUM 6
+#define AUAUXNUM 7
 
 int write_pv(int sw_bp, int sw_ba, int sw_mc, int sw_au)
 {
@@ -1368,6 +1438,7 @@ int write_pv(int sw_bp, int sw_ba, int sw_mc, int sw_au)
       auxmat[i][j]=dfvec[i]; j++;  /* df */
       auxmat[i][j]=betamat[i][0]; j++; /* signed distance */
       auxmat[i][j]=betamat[i][1]; j++; /* curvature */
+      auxmat[i][j]=betamat[i][2]; j++; /* dim */
       auxmat[i][j]=thvec[i]; j++; /* threshold */
     }
   }
@@ -1856,7 +1927,7 @@ double *getseval(double *pval, int m, double nb, double *seval)
 }
 
 /*
- *  MS-BOOT ROUTINES
+ *  MS-BOOT BY WLS
  */
 
 int wlscalcpval(double *cnts, double *rr, double *bb, int kk,
@@ -1868,7 +1939,7 @@ int wlscalcpval(double *cnts, double *rr, double *bb, int kk,
 {
   int i;
   double x,s,**vmat;
-  static double beta[2];
+  static double beta[3];
   static int kk0=0;
   static double *npv=NULL,*zval=NULL,*wt=NULL; /* kk-vector */
   static double **X=NULL; /* 2 x kk matrix */
@@ -1898,7 +1969,7 @@ int wlscalcpval(double *cnts, double *rr, double *bb, int kk,
       m++;
     }
   }
-  *df=(double)(m+m2-2);
+  *df=(double)(m-2);
 
   if(m<2) {
     for(x=0.0,i=0;i<kk;i++) x+=zval[i];
@@ -1907,6 +1978,7 @@ int wlscalcpval(double *cnts, double *rr, double *bb, int kk,
     beta[0]=beta[1]=0.0; vmat=NULL;
     *pv0=*pv; *se0=*se;
     i=1; /* degenerate */
+    dprintf(1,"\n# error in wls");
   } else {
     lsfit(X,zval,wt,2,kk,beta,rss,&vmat);
     *pv=pnorm( -(beta[0]-kappa*beta[1]) );
@@ -1918,7 +1990,7 @@ int wlscalcpval(double *cnts, double *rr, double *bb, int kk,
     *se0=sqrt(x*x*(vmat[0][0]+vmat[1][1]+vmat[0][1]+vmat[1][0]));
     i=0; /* non-degenerate */
   }
-
+  beta[2]=0.0;
   if(betap) *betap=beta;  if(vmatp) *vmatp=vmat; 
   return i;
 }
@@ -1936,8 +2008,8 @@ double log3(double x)
   }
   return y;
 }
-int mleloopmax=20;
-double mleeps=0.0001;
+int mleloopmax=30;
+double mleeps=1e-10;
 int mlecoef(double *cnts, double *rr, double *bb, int kk,
 	    double *coef0, /* set initinal value (size=2) */
 	    double **vmat, /* variance (2x2) */
@@ -1956,6 +2028,7 @@ int mlecoef(double *cnts, double *rr, double *bb, int kk,
     s=renew_vec(s,kk); r=renew_vec(r,kk); c=renew_vec(c,kk);
     b=renew_vec(b,kk); z=renew_vec(z,kk); p=renew_vec(p,kk); 
     d=renew_vec(d,kk); g=renew_vec(g,kk); h=renew_vec(h,kk); 
+    kk0=kk;
   }
 
   m=0;
@@ -1964,11 +2037,11 @@ int mlecoef(double *cnts, double *rr, double *bb, int kk,
       r[m]=rr[i]; s[m]=sqrt(rr[i]); c[m]=cnts[i]; b[m]=bb[i];
       m++;
     }
+  if(m<2) return 1;
 
   coef[0]=coef0[0]; /* signed distance */
   coef[1]=coef0[1]; /* curvature */
-
-  dprintf(1,"\n# mle deg=%d, coef=(%g,%g)",m,coef[0],coef[1]);
+  dprintf(3,"\n### mlecoef: deg=%d, coef0=(%g,%g)",m-2,coef[0],coef[1]);
 
   for(loop=0;loop<mleloopmax;loop++) {
     d1f=d2f=d11f=d12f=d22f=0.0;
@@ -1984,7 +2057,7 @@ int mlecoef(double *cnts, double *rr, double *bb, int kk,
       } else { g[i]=h[i]=0.0; }
       d1f+= -h[i]*s[i]; d2f+= -h[i]/s[i];
       d11f+= g[i]*r[i]; d12f+= g[i]; d22f+= g[i]/r[i];
-      dprintf(3,"\n### %d %g %g %g %g %g",i,z[i],p[i],d[i],g[i],h[i]);
+      dprintf(3,"\n### mlecoef: %d %g %g %g %g %g",i,z[i],p[i],d[i],g[i],h[i]);
     }
 
     a=d11f*d22f-d12f*d12f;
@@ -2002,7 +2075,7 @@ int mlecoef(double *cnts, double *rr, double *bb, int kk,
     e=-d11f*update[0]*update[0]-2.0*d12f*update[0]*update[1]
       -d22f*update[1]*update[1];
 
-    dprintf(2,"\n## %d %g %g %g %g %g",
+    dprintf(2,"\n## mlecoef: %d %g %g %g %g %g",
 	    loop,coef[0],coef[1],update[0],update[1],e);
     if(e<mleeps) break;
   }
@@ -2035,17 +2108,17 @@ int mlecalcpval(double *cnts, double *rr, double *bb, int kk,
 {
   int i;
   double x,*coef0;
-  static double coef[2], **vmat=NULL;
+  static double coef[3], **vmat=NULL;
   if(!vmat) vmat=new_mat(2,2);
 
   i=wlscalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,
 		rss,df,&coef0,vmatp,rmin,rmax,kappa);
-  coef[0]=coef0[0], coef[1]=coef0[1];
   if(betap) *betap=coef0;
-  if(i) {dprintf(1,"\n# error in wls"); return i;} /* error */
+  if(i) return i; /* error */
   
+  coef[0]=coef0[0], coef[1]=coef0[1];
   i=mlecoef(cnts,rr,bb,kk,coef,vmat,rss,df,rmin,rmax);
-  if(i) {dprintf(1,"\n# error in mle"); return i;} /* error */
+  if(i) {dprintf(0,"\n# error in mle, use wls instead"); return 0;}
 
   *pv=pnorm(-(coef[0]-kappa*coef[1]) );
   x=dnorm(coef[0]-kappa*coef[1]);
@@ -2054,11 +2127,320 @@ int mlecalcpval(double *cnts, double *rr, double *bb, int kk,
   *pv0=pnorm(-(coef[0]+coef[1]));
   x=dnorm(coef[0]+coef[1]);
   *se0=sqrt(x*x*(vmat[0][0]+vmat[1][1]+vmat[0][1]+vmat[1][0]));
+  if(betap) *betap=coef;  if(vmatp) *vmatp=vmat;
+  coef[2]=0.0;
 
-  if(betap) *betap=coef; if(vmatp) *vmatp=vmat;
-
-  return i;
+  return 0;
 }
+
+/*
+ *  MS-BOOT BY SPHERICAL MODEL
+ */
+
+
+double chilrt(double *cc, double *rr, double *bb, int kk,
+	      double sid, double a, double m)
+/* sid = signed distance. a is the radius of the
+ spherical region. m is the dimension of the space */
+{
+  double aa,cv,x,xx,lrt,lik,bp,r;
+  int k,aneg;
+
+  aneg=a<0; x=a+sid;
+  xx=x*x; aa=a*a;
+  lrt=0.0;
+  for(k=0;k<kk;k++) {
+    if(xx*rr[k]<1e6) {
+      if(!aneg) bp=pchisqnc(aa*rr[k],m,xx*rr[k]);
+      else bp=tchisqnc(aa*rr[k],m,xx*rr[k]);
+    } else {
+      r=sqrt(rr[k]); 
+      cv=(m-1.0)*(0.5/x+sid*0.25/xx);
+      bp=pnorm(-sid*r-cv/r);
+    }
+    if(bp>0.0 && bp<1.0) {
+      if(cc[k]>0.0) lik=cc[k]*log(cc[k]/bb[k]/bp); else lik=0.0;
+      if(cc[k]<bb[k]) lik+=(bb[k]-cc[k])*(log3(bp)-log3(cc[k]/bb[k]));
+      lrt += lik;
+    }
+  }
+  lrt *= 2.0;
+  return lrt;
+}
+
+double chipval(double sid, double a, double m)
+/* sid = signed distance. a is the radius of the
+ spherical region. m is the dimension of the space */
+{
+  double aa,cv,x,xx,pval;
+  int aneg;
+
+  aneg=a<0; x=a+sid;
+  xx=x*x; aa=a*a;
+  if(aa<1e6) {
+    if(!aneg) pval=tchisqnc(xx,m,aa);
+    else pval=pchisqnc(xx,m,aa);
+  } else {
+    cv=(m-1.0)*(0.5/a-sid*0.25/aa);
+    pval=pnorm(-sid+cv);
+  }
+  return pval;
+}
+
+double chibp(double sid, double a, double m)
+/* sid = signed distance. a is the radius of the
+ spherical region. m is the dimension of the space */
+{
+  double aa,cv,x,xx,bp;
+  int aneg;
+
+  aneg=a<0; x=a+sid;
+  xx=x*x; aa=a*a;
+  if(xx<1e6) {
+    if(!aneg) bp=pchisqnc(aa,m,xx);
+    else bp=tchisqnc(aa,m,xx);
+  } else {
+    cv=(m-1.0)*(0.5/x+sid*0.25/xx);
+    bp=pnorm(-sid-cv);
+  }
+  return bp;
+}
+
+#define CHIFUNCP chifuncp
+int chifuncp=2;
+double chixh1z[]={0.001,0.001,0.001};
+double chixh2z[]={0.0002,0.0002,0.0002};
+double chixh1[3], chixh2[3];
+double chidim=0.0; /* dimension of the space */
+int chikk; double *chicc,*chirr,*chibb;
+#define PAR2DIM(P) (1.0+exp(P))
+#define DIM2PAR(D) (log((D)-1.0))
+#define PARM0 parm[0]
+#define PARM2 (chifuncp==2)?chidim:PAR2DIM(parm[2])
+#define PARM1 0.5*((PARM2)-1.0)/parm[1]
+
+double chimodel(double *parm)
+{
+  double x;
+  x=chilrt(chicc,chirr,chibb,chikk,PARM0,PARM1,PARM2);
+  if(x==0.0) x=1e30;
+  dprintf(4,"\n#### P: %g %g = %g",parm[0],parm[1],x);
+
+  return x;
+}
+double chiobj(double *parm)
+{
+  return chipval(PARM0,PARM1,PARM2);
+}
+double chiobj0(double *parm)
+{
+  return chibp(PARM0,PARM1,PARM2);
+}
+void chiseth(double *parm)
+{
+  int i; double x;
+  for(i=0;i<CHIFUNCP;i++) {
+    x=fabs(parm[i]); if(x<10.0) x=10.0;
+    chixh1[i]=x*chixh1z[i];
+    chixh2[i]=x*chixh2z[i];
+  }
+}
+void chidmodel(double *parm, double *diff)
+{
+  chiseth(parm);
+  dfmpridr(parm,diff,chixh1,CHIFUNCP,chimodel);
+  dprintf(3,"\n### D: %g %g",diff[0],diff[1]);
+}
+void chiddmodel(double *parm, double **diff)
+{
+  chiseth(parm);
+  ddfsimple(parm,diff,chixh2,CHIFUNCP,chimodel);
+}
+void chidobj(double *parm, double *diff)
+{
+  chiseth(parm);
+  dfmpridr(parm,diff,chixh1,CHIFUNCP,chiobj);
+}
+void chidobj0(double *parm, double *diff)
+{
+  chiseth(parm);
+  dfmpridr(parm,diff,chixh1,CHIFUNCP,chiobj0);
+}
+
+int chicoef(double *cc, double *rr, double *bb, int kk,
+	    double *parm0, /* set initinal value (size=3) */
+	    double ***vmatp, /* variance ptr (3x3) */
+	    double *lrt, double *df, /* LRT statistic */
+	    double rmin, double rmax)
+{
+  int i,m,loop,is;
+  double parm[3],x,y,**vmat;
+  double parm2max, parm2min, parm2grid;
+  double ***vmata, *ya, **parma;
+  int im,ik;
+  int im1,im2,im3,im4;
+  double x1,x2,x3;
+  static int kk0=0;
+  static double *cc0=0,*rr0=0,*bb0=0;
+
+  if(kk>kk0) {
+    cc0=renew_vec(cc0,kk); rr0=renew_vec(rr0,kk);
+    bb0=renew_vec(bb0,kk); kk0=kk;
+  }
+
+  m=0; x=0.0;
+  for(i=0;i<kk;i++)
+    if(rr[i]>=rmin && rr[i]<=rmax) {
+      rr0[m]=rr[i]; cc0[m]=cc[i]; bb0[m]=bb[i];
+      x+=bb[i]; m++;
+    }
+
+  chifuncp=2;
+  if(m<CHIFUNCP) return 1;
+  chicc=cc; chirr=rr0; chibb=bb0; chikk=m;
+  *df=m-CHIFUNCP;
+
+  for(i=0;i<3;i++) parm[i]=parm0[i];  
+  chidim=PAR2DIM(parm[2]);
+  dfnmin(parm,2,chieps,&loop,&y,&vmat,chimodel, chidmodel, chiddmodel);
+  dprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
+	  0,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
+
+  if(sw_chidimopt && (*df)>=1) {
+    (*df)--;
+    /* save the parameters */
+    ik=chinumgrid+1;
+    vmata=NEW_A(ik,double**); ya=new_vec(ik); parma=new_mat(ik,3);
+    ya[0]=y; for(i=0;i<3;i++) parma[0][i]=parm[i]; vmata[0]=vmat;
+    im=0;
+    /* find the optimal dimension by grid search */
+    parm2max=parm0[2]; parm2min=DIM2PAR(chidimmin);
+    parm2grid=(parm2max-parm2min)/(ik-1);
+    for(is=1;is<ik;is++) {
+      parm[2]=parm2max-is*parm2grid;
+      chidim=PAR2DIM(parm[2]);
+      dfnmin(parm,2,chieps,&loop,&y,&vmat,
+	     chimodel, chidmodel, chiddmodel);
+      ya[is]=y; for(i=0;i<3;i++) parma[is][i]=parm[i]; vmata[is]=vmat;
+      if(y<ya[im]) im=is;
+      dprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
+	      is,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
+    }
+    if(sw_chidimgs && im>0 && im<ik-1) {
+#define GOLDRATIO 0.38196601125010515
+#define GOLDLOOPMAX 10
+      im1=im+1; im2=im; im3=im-1;
+      /* golden section search */
+      for(is=0;is<GOLDLOOPMAX;is++) {
+	x1=parma[im1][2]; x2=parma[im2][2]; x3=parma[im3][2];
+	if(x3-x2>=x2-x1) {
+	  x=x2+GOLDRATIO*(x3-x2);
+	} else {
+	  x=x2-GOLDRATIO*(x2-x1);
+	}
+	for(i=0;i<3;i++) parm[i]=parma[im2][i];	parm[2]=x;
+	chidim=PAR2DIM(parm[2]);
+	dfnmin(parm,2,chieps,&loop,&y,&vmat,
+	       chimodel, chidmodel, chiddmodel);
+	dprintf(1,"\n# opt gold=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
+		is,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
+	if(y<ya[im2]){
+	  /* new point becomes the bracketted point */
+	  if(x>x2) {
+	    /* x1 will be deleted: x1, (x2, x, x3) */
+	    i=im1; im1=im2; im2=i;
+	  } else {
+	    /* x3 will be deleted: (x1, x, x2), x3 */
+	    i=im3; im3=im2; im2=i;
+	  }
+	  im4=im2;
+	} else {
+	  /* new point becomes a bracketing point */
+	  if(x>x2) {
+	    /* x3 will be deleted: (x1, x2, x), x3 */
+	    im4=im3;
+	  } else {
+	    /* x1 will be deleted: x1, (x, x2, x3) */
+	    im4=im1;
+	  }
+	}
+	free_mat(vmata[im4]); vmata[im4]=vmat; ya[im4]=y;
+	for(i=0;i<3;i++) parma[im4][i]=parm[i];
+      }
+      im=im2;
+#undef GOLDRATIO      
+#undef GOLDLOOPMAX
+    } 
+    y=ya[im]; for(i=0;i<3;i++) parm[i]=parma[im][i]; vmat=vmata[im];
+    dprintf(1,"\n# opt im=%d sid=%g cv=%g dim=%g lrt=%g",
+	    im,parm[0],parm[1],PAR2DIM(parm[2]),y);
+    for(i=0;i<ik;i++) {
+      if(vmata[i]!=vmat) free_mat(vmata[i]);
+    }
+    free(vmata); free_mat(parma); free_vec(ya);
+  }
+
+  *lrt=y; *vmatp=vmat; for(i=0;i<3;i++) parm0[i]=parm[i]; 
+
+  return 0;
+}
+
+int chicalcpval(double *cnts, double *rr, double *bb, int kk,
+		double *pv, double *se,    /* au */
+		double *pv0, double *se0,  /* bp */
+		double *rss, double *df, 
+		double **betap, double ***vmatp, /* reference only */
+		double rmin, double rmax, double kappa)
+{
+  int i,j;
+  double x,*beta0,**vmat,rss0,df0;
+  static double parm[3], diff[3], beta[3];
+
+  i=wlscalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,
+		rss,df,&beta0,vmatp,rmin,rmax,kappa);
+  if(betap) *betap=beta0;
+  if(i) return i; /* error */
+
+  if(chidimarg!=0.0) chidim=chidimarg;
+  else chidim=(mm-1.0)*mf;
+  if(chidim<chidimmin) chidim=chidimmin;
+  parm[0]=beta0[0]; /* signed distance */
+  parm[1]=beta0[1]; /* curvature */
+  parm[2]=DIM2PAR(chidim);
+
+  i=chicoef(cnts,rr,bb,kk,parm,&vmat,&rss0,&df0,rmin,rmax);
+  if(vmatp) *vmatp=vmat;
+  if(i) {dprintf(0,"\n# error in chi, use wls instead"); return 0;}
+  *rss=rss0; *df=df0;
+
+  *pv=chiobj(parm); chidobj(parm,diff);
+  x=0.0; 
+  for(i=0;i<CHIFUNCP;i++) for(j=0;j<CHIFUNCP;j++)
+    x+=diff[i]*diff[j]*vmat[i][j];
+  if(x<0.0) { warning("negative variance of au in chicalcpval"); x=0.0; }
+  *se=sqrt(x);
+
+  *pv0=chiobj0(parm); chidobj0(parm,diff);
+  x=0.0; 
+  for(i=0;i<CHIFUNCP;i++) for(j=0;j<CHIFUNCP;j++)
+    x+=diff[i]*diff[j]*vmat[i][j];
+  if(x<0.0) { warning("negative variance of np in chicalcpval"); x=0.0; }
+  *se0=sqrt(x);
+
+  /* for compatibility */
+  beta[0]=parm[0]; beta[1]=parm[1]; beta[2]=PAR2DIM(parm[2]);
+  dprintf(1,"\n# pv=%g (%g) pv0=%g (%g) sid=%g cv=%g a=%g m=%g",
+	  *pv,*se,*pv0,*se0,beta[0],beta[1],PARM1,beta[2]);
+  if(betap) *betap=beta;
+  if(!vmatp) free_mat(vmat);
+  return 0;
+}
+
+/*
+
+  MS-BOOT INTERFACE
+
+ */
 
 /* switch the wls and the mle for calculating au test */
 int calcpval(double *cnts, double *rr, double *bb, int kk,
@@ -2068,14 +2450,23 @@ int calcpval(double *cnts, double *rr, double *bb, int kk,
 	     double **betap, double ***vmatp, /* reference only */
 	     double rmin, double rmax, double kappa)
 {
-  if(sw_mle) return mlecalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,rss,df, 
-				betap,vmatp,rmin,rmax,kappa);
-  else return wlscalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,rss,df, 
-			  betap,vmatp,rmin,rmax,kappa);
+  switch(sw_fitmode) {
+  case FITMODE_WLS:
+    return wlscalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,rss,df, 
+		       betap,vmatp,rmin,rmax,kappa);
+  case FITMODE_MLE:
+    return mlecalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,rss,df, 
+		       betap,vmatp,rmin,rmax,kappa);
+  case FITMODE_CHI:
+    return chicalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,rss,df, 
+		       betap,vmatp,rmin,rmax,kappa);
+  default:
+  }
+  return 2;
 }
 
 
-double pfmin=0.001; /* minimum p-value of diagnostics */
+double pfmin=0.0; /* minimum p-value of diagnostics */
 double rrmin=0.0; /* minimum rr */
 double rrmax=100.0; /* maximum rr */
 int rcalpval(double *cnts, double *rr, double *bb, int kk,
@@ -2142,7 +2533,8 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
   for(i=0;i<kk;i++) buf[i]=fabs(rr[i]-1.0);
   i=argmin_vec(buf,kk); xn=statps[i][bb[i]/2];
 
-  *pvp=*sep=*pv0p=*se0p=*rssp=*dfp=*thp=0.0;*betap=NULL;*vmatp=NULL;
+  *pvp=*sep=*pv0p=*se0p=*rssp=*dfp=*thp=0.0;
+  if(betap) *betap=NULL; if(vmatp) *vmatp=NULL;
   z=ze=0.0; th=threshold; idf0=-2;
   z0=ze0=0.0;
   /* iteration */
@@ -2156,14 +2548,10 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
     /* get pvalue */
     i=calcpval(cntvec,rr,buf,kk,&pv,&se,&pv0,&se0,
 	       &rss,&df,&beta,&vmat,rrmin,rrmax,kappa);
+    if(!i) { z=-pv; ze=se; }
     idf=(int)df;
-    if(vmat) {
-      z=beta[0]-kappa*beta[1];
-      ze=sqrt(vmat[0][0]+kappa*kappa*vmat[1][1]
-	      -kappa*vmat[0][1]-kappa*vmat[1][0]);      
-    }
     dprintf(2,
-"\n## %3d %6.3f %6.3f %9.6f %9.6f %3.0f %6.3f %6.3f %6.3f %6.3f %g",
+"\n## vcalpval: %3d %6.3f %6.3f %9.6f %9.6f %3.0f %6.3f %6.3f %6.3f %6.3f %g",
 	    j,th,x,pv,se,df,beta[0],beta[1],z,ze,rss);
 
     if(idf < dfmin && idf0 < dfmin) return 1; /* degenerated */
@@ -2176,8 +2564,10 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
     if(idf0 >= dfmin && (fabs(z-z0)<vceps1*ze0)) {
       if(th==threshold) xn=th; else th=x;
     } else xn=vcscale*th+(1.0-vcscale)*x;
-    *pvp=pv;*sep=se;*rssp=rss;*dfp=df;*betap=beta;*vmatp=vmat;*thp=x;
+    *pvp=pv;*sep=se;*rssp=rss;*dfp=df;*thp=x; 
     *pv0p=pv0;*se0p=se0;
+    if(betap) *betap=beta;  if(vmatp) *vmatp=vmat;
+
     z0=z;ze0=ze; idf0=idf;
     if(x==th) return 0;
   }
@@ -2219,7 +2609,7 @@ int invtpval(double **statps, double *rr, int *bb, int kk,
   x=pv=0.0; se=1.0;
   for(j=0;j<CILOOPMAX;j++) {
     x0=x; x=0.5*(x1+x2);
-    dprintf(2,"\n## %d %g ",j,x);
+    dprintf(2,"\n## invtpval: j=%d x=%g ",j,x);
     /* get cnts */
     for(i=0;i<kk;i++) {
       cntvec[i]=cntdist(statps[i],bb[i],x,3);
@@ -2227,8 +2617,10 @@ int invtpval(double **statps, double *rr, int *bb, int kk,
     }
     /* get pvalue */
     se0=se; pv0=pv;
+    debugmode--;
     i=calcpval(cntvec,rr,buf,kk,&pv,&se,&pv00,&se00,
 	       &rss,&df,&beta,NULL,rrmin,rrmax,kappa);
+    debugmode++;
     e=pv-alpha;
     dprintf(2,"%g %g %g %g %g %g %g %g ",
 	    pv,se,rss,df,beta[0],beta[1],e,e/se);
