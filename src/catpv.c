@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2002-09-03 10:52:42 shimo>
+  Time-stamp: <2002-09-03 13:25:35 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,9 +17,22 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.12 2002/08/20 15:19:16 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.13 2002/09/03 01:57:48 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
+int sw_help=0;
+int sw_verpose=0;
+int sw_pba=1;
+int sw_pau=1;
+int sw_pbp=1;
+int sw_pmc=1;
+int sw_cat=0;
+int sw_prt=1;
+int sw_sort=0;
+int sw_cong=0;
+int labeladd=1;
+int sw_prank=0;
+int sw_printse=0;
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -32,19 +45,25 @@ void print_real(double x)
   else  printf(" %6.0f",x);
 }
 
-int sw_printse=0;
-
 void print_pvname(char *name)
 {
   printf(" %6s",name);
   if(sw_printse)   printf(" %7s","(se)");
 }
 
+char indicate_sort(int col)
+{
+  if(col==sw_sort) return '+';
+  else if(col==-sw_sort) return '-';
+  else return ' ';
+}
+
 void print_pvcol(int col)
 {
-  printf(" %6d",col);
+  printf(" %5d%c",col,indicate_sort(col));
   if(sw_printse)   printf(" %7s","");
 }
+
 
 void print_pval(double pv, double se)
 {
@@ -52,18 +71,6 @@ void print_pval(double pv, double se)
   if(sw_printse)   printf(" (%5.3f)",se);
 }
 
-
-int sw_help=0;
-int sw_verpose=0;
-int sw_pba=1;
-int sw_pau=1;
-int sw_pbp=1;
-int sw_pmc=1;
-int sw_cat=0;
-int sw_prt=1;
-int sw_sort=0;
-int sw_cong=0;
-int labeladd=1;
 
 char *fname_cat=NULL; char *fext_cat=".out";
 char *fname_cong=NULL; char *fext_cong=".pv";
@@ -146,6 +153,8 @@ int main(int argc, char** argv)
 	 sscanf(argv[i+1],"%d",&sw_sort) != 1)
 	byebye();
       i+=1;
+    } else if(streq(argv[i],"-r")) {
+      sw_prank=1;
     } else if(streq(argv[i],"-e")) {
       sw_printse=1;
     } else if(streq(argv[i],"-v")) {
@@ -222,8 +231,9 @@ int main(int argc, char** argv)
     sw_au = sw_au && sw_pau && sw_prt;
     sw_mc = sw_mc && sw_pmc && sw_prt;
 
-    if(sw_prt && sw_verpose) {
-      printf("\n# %4d %4d %6d", 0,1,2);
+    if(sw_prt && (sw_sort||sw_verpose)) {
+      printf("\n# %3d%c %3d%c %5d%c", 
+	     0,indicate_sort(0),1,indicate_sort(1),2,indicate_sort(2));
       if(sw_au) 
 	for(i=jau;i<jau+AUPVNUM;i++) print_pvcol(3+i);
       printf(" |");
@@ -260,7 +270,7 @@ int main(int argc, char** argv)
 
     for(i=0;i<cm;i++) {
       ir=revordv[i];
-      if(sw_prt) printf("\n# %4d %4d %6.1f",ir+1,orderv[ir]+labeladd,obsvec[ir]);
+      if(sw_prt) printf("\n# %4d %4d %6.1f",i+1,orderv[ir]+labeladd,obsvec[ir]); 
       j=0;
       if(sw_au) {
 	j=jau;
@@ -301,6 +311,14 @@ int main(int argc, char** argv)
       } 
     }
 
+    if(sw_prank) {
+      printf("\n\n# %6s %6s %6s","rank","ordr","item");
+      for(i=0;i<cm;i++) {
+      ir=revordv[i];
+      printf("\n  %6d %6d %6d",i+1,ir+1,orderv[ir]+labeladd);
+      }
+    }
+
     if(sw_cat||sw_cong){ /* saving the file */
       pvmats[ifile]=pvmat;  semats[ifile]=semat;
       auxmats[ifile]=auxmat; obsvecs[ifile]=obsvec;
@@ -315,7 +333,8 @@ int main(int argc, char** argv)
 
   if(sw_help && sw_prt) {
     printf("\n# ABBREVIATIONS");
-    printf("\n# rank: ranking of the item");
+    printf("\n# rank: rank of the item");
+    printf("\n# ordr: the input order of the item");
     printf("\n# item: the label of the item");
     printf("\n# obs:  observed statistic value");
     printf("\n# --- p-values using the multiscale bootstrap ---");
