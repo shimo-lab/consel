@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-01-10 00:19:12 shimo>
+  Time-stamp: <2002-01-10 21:40:35 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.6 2001/08/10 06:14:17 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.7 2002/01/10 02:18:38 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -154,6 +154,9 @@ double *khwpvec, *khwsvec; /* weighted kh-test p-value */
 double *pvvec, *sevec ; /* multi-scale pvalue */
 double *pv0vec, *se0vec; /* pvalue for the derived naive method */
 
+/* bayes posterior prob */
+double *bapvec=NULL, *basvec=NULL;
+
 /* for msboot pv */
 double **betamat=NULL; /* (2,cm)-matrix of signed distance, curvature */
 double *rssvec=NULL; /* cm-vec rss */
@@ -188,6 +191,7 @@ int sw_outcnt=0; /* output cnt file */
 int sw_inrep=0; /* input rep file */
 int sw_incnt=0; /* input cnt file */
 int sw_smoothcnt=0; /* smooth cnt file */
+int sw_doba=1; /* dont skip ba-test */
 int sw_domc=1; /* dont skip mc-tests */
 int sw_doau=1; /* dont skip au-tests */
 int sw_dobp=1; /* dont skip bp-tests */
@@ -206,8 +210,9 @@ int do_bptest();
 int do_mctest();
 int do_bootrep();
 int do_bootcnt();
+int do_batest();
 /* output routines */
-int write_pv(int sw_bp, int sw_mc, int sw_au);
+int write_pv(int sw_bp, int sw_ba, int sw_mc, int sw_au);
 int write_ci();
 int write_rep();
 int write_cnt();
@@ -261,6 +266,8 @@ int main(int argc, char** argv)
       i+=1;
     } else if(streq(argv[i],"--no_sort")) {
       sw_nosort=1;
+    } else if(streq(argv[i],"--skip_ba")) {
+      sw_doba=0;
     } else if(streq(argv[i],"--skip_mc")) {
       sw_domc=0;
     } else if(streq(argv[i],"--skip_au")) {
@@ -496,6 +503,9 @@ int do_rmtmode()
   } else {
     nalpha=nalpha0; alphavec=alphavec0;
   }
+  
+  /* bayes */
+  if(sw_doba) do_batest();
 
   /* conventional methods */
   if(sw_domc) do_mctest();
@@ -541,7 +551,8 @@ int do_rmtmode()
   if(sw_doau) do_bootrep();
 
   /* output results */
-  if(sw_dobp||sw_domc||sw_doau) write_pv(sw_dobp,sw_domc,sw_doau);
+  if(sw_dobp||sw_domc||sw_doau||sw_doba)
+    write_pv(sw_dobp,sw_doba,sw_domc,sw_doau);
   if(sw_doau) write_ci();
   if(sw_outrep) write_rep();
   if(sw_outcnt) write_cnt();
@@ -600,7 +611,7 @@ int do_repmode()
   if(sw_dobp) do_bptest();
   if(sw_doau) do_bootrep();
 
-  write_pv(sw_dobp,0,sw_doau);
+  write_pv(sw_dobp,0,0,sw_doau);
   if(sw_doau) {
     write_ci();
     if(sw_outrep) write_rep();
@@ -639,7 +650,7 @@ int do_cntmode()
     nsvec=getseval(npvec,cm,bb[i0],NULL);
   }
   if(sw_doau) do_bootcnt();
-  write_pv(sw_dobp,0,sw_doau);
+  write_pv(sw_dobp,0,0,sw_doau);
 
   return 0;
 }
@@ -668,6 +679,26 @@ int do_bptest()
   nsvec=getseval(npvec,cm,nb,NULL);
 
   printf("\n# BP-TEST DONE");
+  return 0;
+}
+
+/* calculate approximate bayes posterior probability */
+int do_batest()
+{
+  int i,j;
+  double x,y,*bapp;
+
+  bapvec=new_vec(cm); basvec=new_vec(cm);
+  bapp=new_vec(mm);
+  x=-HUGENUM; for(i=0;i<mm;i++) if(datvec[i]>x) x=datvec[i];
+  y=0.0; for(i=0;i<mm;i++) {y+=bapp[i]=exp(datvec[i]-x);}
+  for(i=0;i<mm;i++) bapp[i]=bapp[i]/y;
+
+  for(i=0;i<cm;i++) {
+    x=0.0; for(j=0;j<asslen[i];j++) x+=bapp[assvec[i][j]];
+    bapvec[i]=x; basvec[i]=0.0;
+  }
+  free_vec(bapp);
   return 0;
 }
 
@@ -897,18 +928,32 @@ int do_bootcnt()
   return 0;
 }
 
+
+/* define bit sw */
+#define BPPVSW 1
+#define BAPVSW 2
+#define MCPVSW 4
+#define AUPVSW 8
+
+/* number of entries */
 #define BPPVNUM 1
+#define BAPVNUM 1
 #define MCPVNUM 4
 #define AUPVNUM 2
+
+/* number of aux entries */
 #define BPAUXNUM 0
+#define BAAUXNUM 0
 #define MCAUXNUM 0
 #define AUAUXNUM 6
-int write_pv(int sw_bp, int sw_mc, int sw_au)
+
+int write_pv(int sw_bp, int sw_ba, int sw_mc, int sw_au)
 {
   FILE *fp;
   char *cbuf;
   double **pvmat,**semat,**auxmat;
   int pvnum,auxnum,i,j;
+  int outbit;
 
   if(fname_pv) {
     fp=openfp(fname_pv,fext_pv,"w",&cbuf);
@@ -918,15 +963,30 @@ int write_pv(int sw_bp, int sw_mc, int sw_au)
     printf("\n# writing to stdout\n");
   }
 
+  outbit=(sw_bp?BPPVSW:0)+(sw_ba?BAPVSW:0)
+    +(sw_mc?MCPVSW:0)+(sw_au?AUPVSW:0);
+  pvnum=(sw_bp?BPPVNUM:0)+(sw_ba?BAPVNUM:0)
+    +(sw_mc?MCPVNUM:0)+(sw_au?AUPVNUM:0);
+  auxnum=(sw_bp?BPAUXNUM:0)+(sw_ba?BAAUXNUM:0)+
+    (sw_mc?MCAUXNUM:0)+(sw_au?AUAUXNUM:0);
+
+  fprintf(fp,"\n# ID:\n%d\n",1); 
+
   fprintf(fp,"\n# ITEM:\n"); fwrite_ivec(fp,orderv,cm);
   fprintf(fp,"\n# STAT:\n"); fwrite_vec(fp,obsvec,cm);
 
-  pvnum=(sw_bp?BPPVNUM:0)+(sw_mc?MCPVNUM:0)+(sw_au?AUPVNUM:0);
+  fprintf(fp,"\n# BIT:\n%d\n",outbit); 
+
   pvmat=new_mat(cm,pvnum); semat=new_mat(cm,pvnum);
+  auxmat=new_mat(cm,auxnum);
+
   for(i=0;i<cm;i++) {
     j=0;
     if(sw_bp) {
       pvmat[i][j]=npvec[i]; semat[i][j]=nsvec[i]; j++;
+    }
+    if(sw_ba) {
+      pvmat[i][j]=bapvec[i]; semat[i][j]=basvec[i]; j++;
     }
     if(sw_mc) {
       pvmat[i][j]=khpvec[i]; semat[i][j]=khsvec[i]; j++;
@@ -939,15 +999,9 @@ int write_pv(int sw_bp, int sw_mc, int sw_au)
       pvmat[i][j]=pv0vec[i]; semat[i][j]=se0vec[i]; j++;
     }
   }
-  fprintf(fp,"\n# PV:\n"); fwrite_mat(fp,pvmat,cm,pvnum);  
-  fprintf(fp,"\n# SE:\n"); fwrite_mat(fp,semat,cm,pvnum);  
 
-  auxnum=(sw_bp?BPAUXNUM:0)+(sw_mc?MCAUXNUM:0)+(sw_au?AUAUXNUM:0);
-  auxmat=new_mat(cm,auxnum);
   for(i=0;i<cm;i++) {
     j=0;
-    if(sw_mc) {
-    }
     if(sw_au){
       auxmat[i][j]=pfvec[i]; j++;  /* pvalue of diagnostic */
       auxmat[i][j]=rssvec[i]; j++; /* rss */
@@ -957,6 +1011,9 @@ int write_pv(int sw_bp, int sw_mc, int sw_au)
       auxmat[i][j]=thvec[i]; j++; /* threshold */
     }
   }
+
+  fprintf(fp,"\n# PV:\n"); fwrite_mat(fp,pvmat,cm,pvnum);  
+  fprintf(fp,"\n# SE:\n"); fwrite_mat(fp,semat,cm,pvnum);  
   fprintf(fp,"\n# AX:\n"); fwrite_mat(fp,auxmat,cm,auxnum);  
 
   if(fname_pv) {fclose(fp); FREE(cbuf);}
