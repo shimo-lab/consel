@@ -2,7 +2,7 @@
 
   makerep.c : make rep-file by the RELL method
 
-  Time-stamp: <2001-06-22 07:50:09 shimo>
+  Time-stamp: <2001-06-23 11:46:53 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: makerep.c,v 1.1 2001/06/22 05:06:22 shimo Exp shimo $";
 
 typedef struct {
   double *ve;
@@ -40,7 +40,7 @@ char *fname_ass = NULL; char *fext_ass = ".ass";
 enum seqfile {SEQ_MT, SEQ_MOLPHY, SEQ_PAML, SEQ_PAUP};
 int seqmode=SEQ_MT;
 char *fext_molphy=".lls";
-char *fext_paml=".lfh";
+char *fext_paml=".lnf";
 char *fext_paup=".txt";
 
 /* msboot parameter */
@@ -277,6 +277,7 @@ int main(int argc, char** argv)
   FREE(dvbuf); FREE(assvec0); FREE(cassvec0); free_ivec(asslen0); 
 
   /* make rep and write rep */
+  if(fname_mt && !fname_rep) fname_rep=rmvaxt(fname_mt);  
   if(fname_rep) { /* binary write to file */
     fp=openfp(fname_rep,fext_rep,"wb",&cbuf);
     printf("\n# writing %s",cbuf);

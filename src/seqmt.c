@@ -1,6 +1,6 @@
 /*  seqmt.c : sequence to mt file converter  */
 
-static const char rcsid[] = "$Id: seqmt.c,v 1.1 2001/05/29 05:09:46 shimo Exp shimo $";
+static const char rcsid[] = "$Id: seqmt.c,v 1.2 2001/05/31 02:48:56 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +13,7 @@ int seqmode=SEQ_MT;
 
 char *fext_mt=".mt";
 char *fext_molphy=".lls";
-char *fext_paml=".lfh";
+char *fext_paml=".lnf";
 char *fext_paup=".txt";
 
 void byebye() {error("error in command line");}
