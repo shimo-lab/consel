@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2001-05-30 10:08:07 shimo>
+  Time-stamp: <2001-06-27 11:48:22 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.4 2001/05/29 06:35:57 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.5 2001/05/31 02:47:52 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 
@@ -48,8 +48,10 @@ int *permrev(int *order, int *rev, int n)
   return rev;
 }
 
+int sw_help=0;
 int sw_verpose=0;
 int sw_pau=1;
+int sw_pbp=1;
 int sw_pmc=1;
 int sw_cat=0;
 int sw_prt=1;
@@ -66,19 +68,21 @@ int trc1=0; /* start for aggregate */
 int trc2=0; /* end for aggregate */
 
 
-#define MCPVNUM 5
+#define BPPVNUM 1
+#define MCPVNUM 4
 #define AUPVNUM 2
+#define BPAUXNUM 0
 #define MCAUXNUM 0
 #define AUAUXNUM 6
 int main(int argc, char** argv)
 {
   /* working variables */
-  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,cm0=0;
+  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,cm0=0;
   FILE *fp;
   char **fnamev,*cbuf;
   int *orderv; double *obsvec;
   double **pvmat,**semat,**auxmat;
-  int sw_mc, sw_au;
+  int sw_bp,sw_mc,sw_au;
   double **outmat;
 
   fnamev=NEW_A(argc-1,char*);
@@ -110,8 +114,12 @@ int main(int argc, char** argv)
       sw_printse=1;
     } else if(streq(argv[i],"-v")) {
       sw_verpose=1;
+    } else if(streq(argv[i],"-h")) {
+      sw_help=1;
     } else if(streq(argv[i],"--no_au")) {
       sw_pau=0;
+    } else if(streq(argv[i],"--no_bp")) {
+      sw_pbp=0;
     } else if(streq(argv[i],"--no_sh")) {
       sw_pmc=0;
     } else if(streq(argv[i],"--no_print")) {
@@ -142,30 +150,29 @@ int main(int argc, char** argv)
     auxmat=fread_mat(fp,&cm,&auxnum);
     if(!cm0 || cm<cm0) cm0=cm; /* take the min */
 
-    sw_au=sw_mc=j=0;
-    if((pvnum==MCPVNUM || pvnum==(MCPVNUM+AUPVNUM)) &&
-	(auxnum==MCAUXNUM || auxnum==(MCAUXNUM+AUAUXNUM))) {
-      sw_mc=1; jmc=j; j+=MCPVNUM;
-    }
-    if((pvnum==AUPVNUM || pvnum==(MCPVNUM+AUPVNUM)) &&
-	      (auxnum==AUAUXNUM || auxnum==(MCAUXNUM+AUAUXNUM))) {
-      sw_au=1; jau=j; j+=AUPVNUM;
-    }
-    if(sw_au + sw_mc == 0) {
+    sw_bp=sw_au=sw_mc=j=0;
+    if(pvnum & BPPVNUM) {sw_bp=1; jbp=j; j+=BPPVNUM;}
+    if(pvnum & MCPVNUM) {sw_mc=1; jmc=j; j+=MCPVNUM;}
+    if(pvnum & AUPVNUM) {sw_au=1; jau=j; j+=AUPVNUM;}
+      
+    if(sw_bp + sw_au + sw_mc == 0) {
       warning("file type unknown (pv:%d, aux:%d)",pvnum,auxnum);
     }
 
+    sw_bp = sw_bp && sw_pbp && sw_prt;
     sw_au = sw_au && sw_pau && sw_prt;
     sw_mc = sw_mc && sw_pmc && sw_prt;
 
     if(sw_prt) printf("\n# %4s %4s %6s", "rank","item","obs");
     if(sw_au) {
       print_pvname("au");
-      print_pvname("bp");
+      print_pvname("np");
     }
     if(sw_prt) printf(" |");
+    if(sw_bp) {
+      print_pvname("bp");
+    }
     if(sw_mc) {
-      print_pvname("nbp");
       print_pvname("kh");
       print_pvname("sh");
       print_pvname("wkh");
@@ -173,7 +180,7 @@ int main(int argc, char** argv)
     }
     if(sw_prt) printf(" |");
     if(sw_verpose && sw_au) {
-      printf(" %6s %6s %2s %6s %6s %6s","pf","rss","df","d","c","th");
+      printf(" %6s %6s %2s %6s %6s %6s","pf","rss","df","x","c","th");
     }
 
     for(i=0;i<cm;i++) {
@@ -185,13 +192,16 @@ int main(int argc, char** argv)
 	print_pval(pvmat[i][j+1],semat[i][j+1]);
       }
       if(sw_prt) printf(" |");
+      if(sw_bp) {
+	j=jbp;
+	print_pval(pvmat[i][j+0],semat[i][j+0]);
+      }
       if(sw_mc) {
 	j=jmc;
 	print_pval(pvmat[i][j+0],semat[i][j+0]);
 	print_pval(pvmat[i][j+1],semat[i][j+1]);
 	print_pval(pvmat[i][j+2],semat[i][j+2]);
 	print_pval(pvmat[i][j+3],semat[i][j+3]);
-	print_pval(pvmat[i][j+4],semat[i][j+4]);
       }
       if(sw_prt) printf(" |");
       if(sw_verpose && sw_au) {
@@ -211,6 +221,38 @@ int main(int argc, char** argv)
     }
     fclose(fp);  FREE(cbuf);
     if(sw_prt) printf("\n");
+  }
+
+  if(sw_help && sw_prt) {
+    printf("\n# ABBREVIATIONS");
+    printf("\n# rank: ranking of the item");
+    printf("\n# item: the label of the item");
+    printf("\n# obs:  observed statistic value");
+    printf("\n# --- p-values using the multiscale bootstrap ---");
+    printf("\n# au:  the approximately unbiased test");
+    printf("\n# np:  the naive p-value");
+    printf("\n# --- p-values using the unscaled bootstrap ---");
+    printf("\n# bp:  the bootstrap probability");
+    printf("\n# kh:  the Kishino-Hasegawa test");
+    printf("\n# sh:  the Shimodaira-Hasegawa test");
+    printf("\n# wkh: the weighted KH-test");
+    printf("\n# wsh: the weighted SH-test");
+    printf("\n# --- details of the au test ---");
+    printf("\n# pf:  diagnostic p-value");
+    printf("\n# rss: fitting error");
+    printf("\n# df:  fitting degrees of freedom");
+    printf("\n# x:   signed distance");
+    printf("\n# c:   curvature");
+    printf("\n# th:  threshold for the region");
+    printf("\n#\n# OPTIONS");
+    printf("\n# -v: show the details");
+    printf("\n# -e: show the standard errors");
+    printf("\n# --no_au: suppress au test");
+    printf("\n# --no_bp: suppress bp test");
+    printf("\n# --no_sh: suppress sh test");
+    printf("\n# --no_print: suppress printing");
+    printf("\n# -o file: aggregating output");
+    printf("\n");
   }
 
   if(sw_cat) { /* aggregating the results */
