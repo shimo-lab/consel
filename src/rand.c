@@ -11,7 +11,7 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id: rand.c,v 1.3 2001/08/10 05:58:15 shimo Exp shimo $
+ $Id: rand.c,v 1.4 2002/02/20 08:53:40 shimo Exp shimo $
 
  */
 
@@ -585,7 +585,7 @@ double gammln(double xx)
   return -tmp+log(2.5066282746310005*ser/x);
 }
 
-#define ITMAX 100
+#define ITMAX 1000
 #define EPS 3.0e-7
 void gser(double *gamser, double a, double x, double *gln)
      /* Returns the incomplete gamma function P (a, x)
@@ -615,8 +615,6 @@ void gser(double *gamser, double a, double x, double *gln)
   }
 }
 
-#define ITMAX 100 /* Maximum allowed number of iterations. */
-#define EPS 3.0e-7 /* Relative accuracy. */
 #define FPMIN 1.0e-30 /* Number near the smallest representable 
 			 floating-point number. */
 void gcf(double *gammcf, double a, double x, double *gln)
@@ -718,12 +716,12 @@ double pnorm(double x) /* cumulative normal */
   return 0.5*erfcn(-x *I_SQRT_2);
 }
 
-double pgamma(double x, double nu)
+double pgammadist(double x, double nu)
 {
   return gammp(nu,x);
 }
 
-double tgamma(double x, double nu)
+double tgammadist(double x, double nu)
 {
   return gammq(nu,x);
 }
@@ -738,6 +736,21 @@ double tchisq(double x, double df) /* tail chisquare */
   return gammq(0.5*df,0.5*x);
 }
 
+double pchisqnc2(double x, double df, double nc)
+{
+  double sd,cv,c1,c2,ra;
+  ra=sqrt(nc); c1=(df-1.0)/(2.0*ra); c2=(df-1.0)/(4.0*nc);
+  sd=sqrt(x)-ra; cv=c1-sd*c2;
+  return pnorm(sd-cv);
+}
+
+double tchisqnc2(double x, double df, double nc)
+{
+  double sd,cv,c1,c2,ra;
+  ra=sqrt(nc); c1=(df-1.0)/(2.0*ra); c2=(df-1.0)/(4.0*nc);
+  sd=sqrt(x)-ra; cv=c1-sd*c2;
+  return pnorm(-sd+cv);
+}
 
 #define CHSQITMAX 1000
 #define CHSQEPS 1.0e-8
@@ -746,14 +759,14 @@ double pchisqnc(double x, double df, double nc)
   int j;
   double a,p,z;
 
-  p=0.0; a=1.0;
+  p=0.0; a=exp(-0.5*nc);
+  if(a==0.0) return pchisqnc2(x,df,nc);
   for(j=0;j<CHSQITMAX;j++) {
     z = a*pchisq(x,df+2*j);
     p += z;
     if(z/p < CHSQEPS) break;
     a *= 0.5*nc/(j+1);
   }
-  p*=exp(-0.5*nc);
   return p;
 }
 
@@ -762,14 +775,14 @@ double tchisqnc(double x, double df, double nc)
   int j;
   double a,p,z;
 
-  p=0.0; a=1.0;
+  p=0.0; a=exp(-0.5*nc);
+  if(a==0.0) return tchisqnc2(x,df,nc);
   for(j=0;j<CHSQITMAX;j++) {
     z = a*tchisq(x,df+2*j);
     p += z;
     if(z/p < CHSQEPS) break;
     a *= 0.5*nc/(j+1);
   }
-  p*=exp(-0.5*nc);
   return p;
 }
 
