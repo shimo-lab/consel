@@ -2,14 +2,14 @@
 
   tree.c: tree handling routines
 
-  Time-stamp: <2001-05-29 11:01:06 shimo>
+  Time-stamp: <2002-04-16 13:54:45 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
 
 */
 
-static const char rcsid[] = "$Id: tree.c,v 1.1 2001/05/05 09:06:39 shimo Exp shimo $";
+static const char rcsid[] = "$Id: tree.c,v 1.2 2001/05/29 06:30:44 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <ctype.h>
@@ -49,6 +49,21 @@ char *fread_word(FILE *fp)
   return word;
 }
 
+int fread_branch(FILE *fp, double *bl)
+{
+  int c;
+    
+  fskipjunk(fp);
+  c=getc(fp);
+  if(c != ':') {
+    ungetc(c,fp);
+    return 0;
+  }
+
+  return fscanf(fp,"%lf",bl);
+}
+
+
 int wordtoid(char *word, Wnode *list)
 {
   int id; /* id starts from 1 */
@@ -83,6 +98,7 @@ Tnode *fread_tree(FILE *fp, Wnode *list)
   int c;
   Tnode *tp;
   char *buf;
+  double x;
 
   tp=NEW(Tnode);
   tp->parent=NULL; tp->child=NULL; tp->id=0;
@@ -94,6 +110,7 @@ Tnode *fread_tree(FILE *fp, Wnode *list)
     buf=fread_word(fp);
     tp->id=wordtoid(buf,list);
     FREE(buf);
+    fread_branch(fp,&x);
   } else { /* internal nodes */
     do {
       tp->child=RENEW_A(tp->child,tp->nchild+1,Tnode*);
@@ -103,6 +120,7 @@ Tnode *fread_tree(FILE *fp, Wnode *list)
       c=fskipgetc(fp);
     } while(c==',');
     if(c != ')') error(" ')' expected");
+    fread_branch(fp,&x);
   }
 
   return tp;
