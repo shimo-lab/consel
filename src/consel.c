@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-03-01 14:43:49 shimo>
+  Time-stamp: <2002-03-03 10:43:59 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.12 2002/02/28 08:21:45 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.13 2002/03/01 09:39:55 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -407,7 +407,7 @@ int main(int argc, char** argv)
   }
 
   if(fname_in && !fname_out) fname_out=fname_in;
-  fname_out=rmvaxt(fname_out);
+  if(fname_out) fname_out=rmvaxt(fname_out);
   if(sw_incnt+sw_inrep>1) error("only one of -C and -R can be specified");
   if(sw_incnt+sw_inrep==0) { /* rmt mode */
     fname_rmt=fname_in;
