@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2001-06-27 09:53:39 shimo>
+  Time-stamp: <2002-01-10 00:19:12 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.5 2001/06/08 01:23:20 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.6 2001/08/10 06:14:17 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,6 +58,10 @@ double *calcmaxs(double *xx, int m);
 void repminmaxs(double **repmat, double **statmat, 
 		int m, int bb, int cm, 
 		int **assvec, int *asslen, double *buf1, double *buf2);
+void repminmaxsrs(double **repmat, double **statmat, 
+		  int m, int bb, int cm, 
+		  int **assvec, int *asslen, double *buf1, double *buf2,
+		  double *repmean, double rs);
 int compdvec(dvec *xp, dvec *yp);
 int *getcass(int *ass, int n, int m, int *cass);
 double *calcmaxass(double *xx, double **wt, int m, 
@@ -95,6 +99,7 @@ char *fname_ass = NULL; char *fext_ass = ".ass";
 char *fname_pv = NULL; char *fext_pv = ".pv";
 char *fname_ci = NULL; char *fext_ci = ".ci";
 char *fname_vt = NULL; char *fext_vt = ".vt";
+char *fname_pa = NULL; char *fext_pa = ".pa";
 
 /* for the scales */
 int kk=0; /* no. of scales */
@@ -132,6 +137,10 @@ double varadd=1.0; /* adding to wtmat */
 double kappa=1.0; /* weight for the curvature */
 double vceps2;
 double mleeps;
+
+/* mspar */
+int kk0=10;
+double rr0[]={0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4};
 
 
 /* for mc-tests: p-values and se (cm-vector) */
@@ -185,6 +194,7 @@ int sw_dobp=1; /* dont skip bp-tests */
 int sw_nosort=0; /* dont sort the items */
 int sw_lmat=0; /* large mat */
 int sw_mle=0; /* use mle */
+int sw_fastrep=0; /* rescaling from r=1 */
 int find_i0();
 
 /* main routines */
@@ -234,6 +244,10 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"-v")) {
       if(i+1>=argc) byebye();
       fname_vt=argv[i+1];
+      i+=1;
+    } else if(streq(argv[i],"-p")) {
+      if(i+1>=argc) byebye();
+      fname_pa=argv[i+1];
       i+=1;
     } else if(streq(argv[i],"-d")) {
       if(i+1>=argc ||
@@ -299,6 +313,8 @@ int main(int argc, char** argv)
       sw_lmat=1;
     } else if(streq(argv[i],"-m")) {
       sw_mle=1;
+    } else if(streq(argv[i],"-f")) {
+      sw_fastrep=1;
     } else if(streq(argv[i],"--mleeps")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&mleeps) != 1)
@@ -338,6 +354,8 @@ int do_rmtmode()
   char *cbuf;
   FILE *fp;
   dvec **dvbuf;
+  int kk1,*bb1,i0,nb;
+  double *rr1,*repmean,x;
 
   /* reading rmt */
   mm=kk=0;
@@ -366,13 +384,32 @@ int do_rmtmode()
 	read_mat(&mm,&(bb[i])); putdot();
     }
   }
+
   printf("\n# K:%d",kk);
   printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
   printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
   printf("\n# M:%d",mm);
 
-  if(kk<2) sw_doau=0;
-  if(kk<1) sw_domc=0;
+  if(kk<1) return 0;
+  i0=find_i0(); /* i0 is for scale=1 */
+
+  if(sw_fastrep) { /* rescaling approximation */
+    /* reading parameters */
+    if(fname_pa!=NULL) {
+      fp=openfp(fname_pa,fext_pa,"r",&cbuf);
+      printf("\n# reading %s",cbuf);
+      kk1=0; rr1=fread_vec(fp,&kk1);
+      fclose(fp); FREE(cbuf);
+    } else {
+      kk1=kk0; rr1=rr0;
+    }
+    printf("\n# RESCALING");
+    printf("\n# K:%d",kk1);
+    printf("\n# R:"); for(i=0;i<kk1;i++) printf("%g ",rr1[i]);
+    if(kk1<2) sw_doau=0;
+  } else { /* without rescaling approximation */
+    if(kk<2) sw_doau=0;
+  }
 
   /* reading association vector */
   if(fname_ass){
@@ -408,8 +445,6 @@ int do_rmtmode()
   /* allocating the memory */
   buf1=new_vec(mm); buf2=new_vec(cm0); orderv=new_ivec(cm0);
   dvbuf=NEW_A(cm0,dvec*);
-  statmats=NEW_A(kk,double**);
-  for(i=0;i<kk;i++) statmats[i]=sw_lmat?new_lmat(cm,bb[i]):new_mat(cm,bb[i]);
   obsvec=new_vec(cm);
   assvec=NEW_A(cm,int*); asslen=NEW_A(cm,int);
   cassvec=NEW_A(cm,int*);
@@ -466,18 +501,43 @@ int do_rmtmode()
   if(sw_domc) do_mctest();
 
   if(sw_doau||sw_dobp||sw_outrep||sw_outcnt) {
-    /* calculate the statistics for the replicates */
     printf("\n# calculate replicates of the statistics");
-    for(i=0;i<kk;i++) {
-      repminmaxs(repmats[i],statmats[i],mm,bb[i],cm,
-		 assvec,asslen,buf1,buf2);
-      putdot();
+    if(sw_fastrep) {
+      /* rescaling approximation */
+      nb=bb[i0];
+      bb1=new_ivec(kk1); for(i=0;i<kk1;i++) bb1[i]=nb;
+      statmats=NEW_A(kk1,double**);
+      for(i=0;i<kk1;i++)
+	statmats[i]=sw_lmat?new_lmat(cm,nb):new_mat(cm,nb);
+      repmean=new_vec(mm);
+      for(j=0;j<mm;j++) {
+	x=0.0; for(i=0;i<nb;i++) x+=repmats[i0][j][i];
+	repmean[j]=x/nb;
+      }
+      for(i=0;i<kk1;i++) {
+	repminmaxsrs(repmats[i0],statmats[i],mm,nb,cm,
+		     assvec,asslen,buf1,buf2,repmean,
+		     sqrt(rr[i0]/rr1[i]));
+	putdot();
+      }
+      kk=kk1; rr=rr1; bb=bb1;
+    } else {
+      /* without rescaling approximation */
+      statmats=NEW_A(kk,double**);
+      for(i=0;i<kk;i++)
+	statmats[i]=sw_lmat?new_lmat(cm,bb[i]):new_mat(cm,bb[i]);
+      /* calculate the statistics for the replicates */
+      for(i=0;i<kk;i++) {
+	repminmaxs(repmats[i],statmats[i],mm,bb[i],cm,
+		   assvec,asslen,buf1,buf2);
+	putdot();
+      }
     }
   }
 
   /* naive bootstrap */
   if(sw_dobp) do_bptest();
-  /* multie-scale bootstrap */
+  /* multi-scale bootstrap */
   if(sw_doau) do_bootrep();
 
   /* output results */
@@ -1163,6 +1223,31 @@ void repminmaxs(double **repmat,  /* m x bb replicate mat */
 
   for(i=0;i<bb;i++) {
     for(j=0;j<m;j++) buf1[j]=repmat[j][i];
+    calcmaxs(buf1,m);
+    calcassmins(buf1,assvec,asslen,cm,buf2);
+    for(j=0;j<cm;j++)
+      statmat[j][i]=buf2[j];
+  }
+}
+
+void repminmaxsrs(double **repmat,  /* m x bb replicate mat */
+		  double **statmat, /* cm x bb output */
+		  int m,   /* number of itmes for input */
+		  int bb,  /* number of replicates */
+		  int cm,  /* number of itmes for output */
+		  int **assvec, /* ass vectors of size cm */
+		  int *asslen, /* length of each assvec[i] */
+		  double *buf1, /* buf of size m */
+		  double *buf2,  /* buf of size cm */
+		  double *repmean, /* m x 1 mean of repmat */
+		  double rs /* rescaling constnat */
+		  )
+{
+  int i,j;
+
+  for(i=0;i<bb;i++) {
+    for(j=0;j<m;j++)
+      buf1[j]=rs*(repmat[j][i]-repmean[j])+repmean[j];
     calcmaxs(buf1,m);
     calcassmins(buf1,assvec,asslen,cm,buf2);
     for(j=0;j<cm;j++)
