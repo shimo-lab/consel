@@ -1,7 +1,7 @@
 /*
   treeass.c : find the associations of the trees
 
-  Time-stamp: <2001-05-17 07:54:03 shimo>
+  Time-stamp: <2001-06-23 11:36:39 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,7 +18,7 @@
 #include "misc.h"
 #include "tree.h"
 
-static const char rcsid[] = "$Id: treeass.c,v 1.2 2001/05/16 22:16:56 shimo Exp shimo $";
+static const char rcsid[] = "$Id: treeass.c,v 1.3 2001/05/29 06:32:22 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -84,7 +84,10 @@ int main(int argc, char** argv)
   for(i=j=1;i<argc;i++) {
     if(argv[i][0] != '-') {
       switch(j) {
-      case 1: fname_tpl=fname_ass=argv[i]; break;
+      case 1: 
+	fname_tpl=argv[i];
+	fname_ass=rmvaxt(argv[i]);
+	break;
       case 2: fname_ass=argv[i]; break;
       default: byebye();
       }
@@ -135,13 +138,13 @@ int main(int argc, char** argv)
   /* selection */
   if(fname_vt) {
     fp=openfp(fname_vt,fext_vt,"r",&cbuf);
-    printf("\n# reading %s",cbuf);
+    fprintf(fpl,"\n# reading %s",cbuf);
     ntree=0; orderv=fread_ivec(fp,&ntree);
     FREE(cbuf); fclose(fp);
     treevec=NEW_A(ntree,Tnode*);
     for(i=0;i<ntree;i++)
       treevec[i]=treevec0[orderv[i]];
-    printf("\n# M: %d -> %d",ntree0,ntree);
+    fprintf(fpl,"\n# M: %d -> %d",ntree0,ntree);
   } else {
     treevec=treevec0; ntree=ntree0;
   }
@@ -281,9 +284,8 @@ int main(int argc, char** argv)
 
   /* OUTPUT ASSOCIATION */
   if(fname_ass) {
-    fname_ass = mstrcat(fname_ass,fext_ass);
-    if((fpr=fopen(fname_ass,"w"))==NULL) error("cant open %s",fname_ass);
-    fprintf(fpl,"\n# writing %s",fname_ass);
+    fpr=openfp(fname_ass,fext_ass,"w",&cbuf);
+    fprintf(fpl,"\n# writing %s",cbuf);
   } else {
     fpr=STDOUT;
     fprintf(fpl,"\n# writing to stdout\n");
@@ -291,11 +293,13 @@ int main(int argc, char** argv)
   /* print split->tree association */
   fprintf(fpr,"\n# EDGE->TREE\n%d\n",splitbase->len);
   for(i=0;i<splitbase->len;i++) {
+    fprintf(fpr,"\n# item: %d\n",i);
     fwrite_ivec(fpr,splittree[i]->ve,splittree[i]->len);
   }
   /* print tree->split association */
   fprintf(fpr,"\n# TREE->EDGE\n%d\n",ntree);
   for(i=0;i<ntree;i++) {
+    fprintf(fpr,"\n# item: %d\n",i);
     fwrite_ivec(fpr,treesplit[i]->ve,treesplit[i]->len);
   }
   if(fname_ass) fclose(fpr);
