@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2002-08-20 22:49:51 shimo>
+  Time-stamp: <2002-08-21 09:52:26 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.15 2002/04/18 16:26:51 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.16 2002/08/20 15:19:38 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2472,8 +2472,8 @@ int calcpval(double *cnts, double *rr, double *bb, int kk,
     return chicalcpval(cnts,rr,bb,kk,pv,se,pv0,se0,rss,df, 
 		       betap,vmatp,rmin,rmax,kappa);
   default:
+    return 2;
   }
-  return 2;
 }
 
 
