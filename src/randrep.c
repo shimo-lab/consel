@@ -1,6 +1,6 @@
 /* randrep.c
 
-  Time-stamp: <2001-06-01 07:54:26 shimo>
+  Time-stamp: <2001-06-27 15:18:57 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,7 +18,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: randrep.c,v 1.2 2001/05/29 06:34:33 shimo Exp shimo $";
+static const char rcsid[] = "$Id: randrep.c,v 1.3 2001/06/08 01:22:35 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -58,6 +58,8 @@ int kk0=10;
 double rr0[]={0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4};
 int bb0[]={10000,10000,10000,10000,10000,10000,10000,10000,10000,10000};
 
+double *rr1=0; /* for save */
+
 /* for rep file */
 double ***statmats=NULL; /* (kk,cm,bb[i])-array of test statistics */
 double *obsvec=NULL; /* cm-vector of observed statistics */
@@ -73,9 +75,16 @@ int mm=0; /* number of items */
 int sw_repeat=0; int num_repeat=1;
 double flucscale=0.0;
 int mode_rmt=0;
+int sw_nonpara=0; 
+
+enum repmodel {REP_CHI, REP_EXP};
+enum rmtmodel {RMT_NORM};
+int repmode=REP_CHI;
+int rmtmode=RMT_NORM;
 
 /* sub routines */
 int do_repchi();
+int do_repexp();
 int do_rmtnorm();
 int write_rep(char *name);
 int write_rmt(char *name);
@@ -93,7 +102,10 @@ int main(int argc, char** argv)
   for(i=j=1;i<argc;i++) {
     if(argv[i][0] != '-') {
       switch(j) {
-      case 1: fname_in=fname_out=argv[i]; break;
+      case 1:
+	fname_in=argv[i];
+	fname_out=rmvaxt(argv[i]);
+	break;
       case 2: fname_out=argv[i]; break;
       default: byebye();
       }
@@ -125,6 +137,14 @@ int main(int argc, char** argv)
       i+=1;
     } else if(streq(argv[i],"-m")) {
       mode_rmt=1;
+    } else if(streq(argv[i],"--nonpara")) {
+      sw_nonpara=1;
+    } else if(streq(argv[i],"--model")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&repmode) != 1)
+	byebye();
+      rmtmode=repmode;
+      i+=1;
     } else byebye();
   }
 
@@ -142,6 +162,8 @@ int main(int argc, char** argv)
   } else {
     kk=kk0; rr=rr0; bb=bb0; 
   }
+  rr1=new_vec(kk);
+  for(i=0;i<kk;i++) rr1[i]=rr[i]; /* save the original */
 
   printf("\n# seed:%d",seed);
   printf("\n# K:%d",kk);
@@ -154,7 +176,11 @@ int main(int argc, char** argv)
     do_rmtnorm();
   } else {
     fname_vt=fname_in; fname_rep=fname_out;
-    do_repchi();
+    switch(repmode) {
+    case REP_CHI: do_repchi(); break;
+    case REP_EXP: do_repexp(); break;
+    default: byebye();
+    }
   }
 
   printf("\n# exit normally\n");
@@ -211,6 +237,96 @@ int do_repchi()
 	for(ib=0;ib<bb[k];ib++) {
 	  x=0.0; for(j=0;j<deg;j++) {y=xbuf[j]+r2*rnorm(); x+=y*y;}
 	  xp[ib]=sg*sqrt(x);
+	}
+      }
+      putdot();
+    }
+    if(sw_repeat) {
+      cbuf=fnamenum(fname_rep,irep,num_repeat);
+      write_rep(cbuf); FREE(cbuf);
+    } else write_rep(fname_rep);    
+  }
+  t1=get_time();
+  printf("\n# time elapsed for replicate generation t=%g sec",t1-t0);
+  fflush(STDOUT);
+
+  return 0;
+}
+
+int do_repexp()
+{
+  int i,j,k,ib;
+  FILE *fp;
+  char *cbuf;
+  double *degvec,*xp,*xbuf,*ncvec;
+  double nc,x,r2,t0,t1,sg,y;
+  int deg,irep,bn;
+
+  if(fname_vt){ 
+    fp=openfp(fname_vt,fext_vt,"r",&cbuf);
+    printf("\n# reading %s",cbuf);
+  } else {
+    fp=STDIN;
+    printf("\n# reading from stdin\n");
+  }
+  cm=0; ncvec=fread_vec(fp,&cm); degvec=fread_vec(fp,&cm);
+  if(fname_vt) {fclose(fp); FREE(cbuf);}
+
+  printf("\n# CM:%d",cm);
+  printf("\n# MEAN:"); for(i=0;i<cm;i++) printf("%g ",ncvec[i]);
+  printf("\n# SAMPLE SIZE:"); for(i=0;i<cm;i++) printf("%g ",degvec[i]);
+  deg=0; for(i=0;i<cm;i++) {
+    if((degvec[i] < 0.99) || fabs(degvec[i]-floor(degvec[i]+0.5))>0.01)
+      error("sample size must be positive integer");
+    if(degvec[i]>deg) deg=(int)degvec[i];
+  }
+  xbuf=new_vec(deg+1); obsvec=new_vec(cm);
+  statmats=NEW_A(kk,double**);
+  for(i=0;i<kk;i++) statmats[i]=new_mat(cm,bb[i]);
+  orderv=new_ivec(cm); for(i=0;i<cm;i++) orderv[i]=i;
+
+
+  for(i=j=0;i<kk;i++) j+=bb[i];
+  printf("\n# start generating %d repeat%s of\
+ total %d replicates for %d items",
+	 num_repeat,(num_repeat>1)?"s":"",j,cm); fflush(STDOUT);
+  t0=get_time();
+  for(irep=0;irep<num_repeat;irep++) {
+    for(i=0;i<cm;i++) {
+      deg=(int)degvec[i]; nc=ncvec[i];
+      sg=ncvec[i]-flucscale; /* mean =  flucscale +  sg */
+      for(j=0;j<deg;j++) {
+	while((x=runif())==0.0);
+	xbuf[j]=sg-flucscale*log(x); /* exponentinal(flucscale)+sg */
+      }
+      dprintf(1,"\n# $d %d: ",irep,i);
+      x=0.0; for(j=0;j<deg;j++) {
+	x+=xbuf[j];
+	dprintf(1,"%g ",xbuf[j]);
+      }
+      obsvec[i]=x/deg; /* average */
+      if(sw_nonpara) {
+	/* non-parametric */
+	for(k=0;k<kk;k++) {
+	  bn=deg*rr1[k];
+	  rr[k]=(double)bn / deg;
+	  r2=1.0/bn; xp=statmats[k][i];
+	  for(ib=0;ib<bb[k];ib++) {
+	    x=0.0; for(j=0;j<bn;j++) x+=xbuf[(int)(runif()*deg)];
+	    xp[ib]=r2*x;
+	  }
+	}
+      } else {
+	/* parametric */
+	for(k=0;k<kk;k++) {
+	  bn=deg*rr1[k];
+	  rr[k]=(double)bn / deg;
+	  r2=obsvec[i]/bn; xp=statmats[k][i];
+	  for(ib=0;ib<bb[k];ib++) {
+	    x=0.0; for(j=0;j<bn;j++) {
+	      while((y=runif())==0.0); x+=-log(y);}
+	    xp[ib]=r2*x;
+	  }
 	}
       }
       putdot();
