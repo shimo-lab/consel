@@ -1,6 +1,6 @@
 % aut/tex/program.tex
-% $Id: program.tex,v 1.1 2001/08/10 06:18:32 shimo Exp shimo $
-\def\documentid{\getTime-stamp: "2001-12-10 15:28:57 shimo"}
+% $Id: program.tex,v 1.2 2001/12/10 06:32:51 shimo Exp shimo $
+\def\documentid{\getTime-stamp: "2002-01-10 11:48:56 shimo"}
 \def\getTime-stamp: "#1"{#1}
 
 \documentclass[12pt]{article}
@@ -44,7 +44,7 @@
 
 {aut/src/program.tex\hfill \documentid}
 \begin{center}
- \bf\large CONSEL program user's guide (V0.1c)\\[3ex]
+ \bf\large CONSEL program user's guide (V0.1d-pre)\\[3ex]
  Hidetoshi Shimodaira\\[2ex]
  \normalsize
  The Institute of Statistical Mathematics\\
@@ -228,9 +228,17 @@ makermt -s 234 -p short foo fooshort
 \end{verbatim}
 generates {\tt fooshort.rmt} with $10$ sets of 1000 replicates and one
 set of 10000 replicates; the total number of replicates is $\sum_{k=1}^K
-B_k= 20000$. Note that the option {\tt -s VAL} specifies the
-random seed to integer $0\le$ VAL $\le999$. The default value of the
-random seed is 123.
+B_k= 20000$. 
+
+The option {\tt -f} changes the default values to
+\[
+ r_1 = 1;\quad B_1=10000;\quad K=1.
+\]
+This may be useful when the multiscale bootstrap is not needed, or when
+the rescaling approximation is used in {\tt consel}.
+
+The option {\tt -s VAL} specifies the random seed to integer $0\le$ VAL
+$\le999$. The default value of the random seed is 123.
 
 
 
@@ -292,6 +300,17 @@ produces {\tt hoo.pv} from {\tt goo.cnt}.
 The option {\tt -m} changes the interanl curve fitting of the asymptotic
 theory from the weighted least squares method to the maximum likleihood
 method.
+
+The option {\tt -f} changes the resampling algorithm to the rescaling
+approximation. This uses only the replicates with $r_k=1$ in {\tt rmt}
+file to generate replicates with all $r_k$ values. The option {\tt -f}
+should be used for {\tt makermt} as well. The rescaling approximation
+may give practically equivalent results as those without approximation,
+but the standard error becomes larger if the same $B_k$ is used. Note
+that the standard error calculation of {\tt consel} does not take account of
+the approximation, so the output of {\tt catpv} with {\tt -e} option
+shows underestimates of the error.
+
 
 
 \subsection{catpv}
@@ -628,7 +647,7 @@ $1,\ldots,m$ of the table above are specified in {\tt mam15.log} given
 below.
 {\small
 \begin{verbatim}
-# $Id: program.tex,v 1.1 2001/08/10 06:18:32 shimo Exp shimo $
+# $Id: program.tex,v 1.2 2001/12/10 06:32:51 shimo Exp shimo $
 # reading mam15.tpl
 # 15 trees read
 # 15 trees, 6 leaves
