@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id$ */
+/* $Id: freadmat.c,v 1.1 2001/05/29 05:09:11 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,7 +132,7 @@ double **fread_mat_paup(FILE *fp, int *mp, int *np)
 
   m = 0;
   len = INIT_VEC_SIZE;
-  A = (double **)V = (double *)NULL;
+  A = NULL; V = NULL;
   while( skip_id(fp) ) {
     for( n = 0; !ferror(fp) && !feof(fp); fskipjunk(fp) ) {
       t = fread_i_noerror(fp);
