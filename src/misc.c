@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2001-04-12 08:24:47 shimo>
+  Time-stamp: <2001-04-16 13:26:28 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -21,7 +21,7 @@
 #include <sys/time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: misc.c,v 1.2 2001/04/11 23:27:10 shimo Exp shimo $";
 
 /*
   error message handling
@@ -55,7 +55,7 @@ void warning(char *fmt, ...)
   va_start(args,fmt);
   printf("\n#! Warning: ");
   vprintf(fmt, args);
-  printf(".\n");
+  printf(". ");
   va_end(args);
 }
 
@@ -453,24 +453,6 @@ int fwrite_bmat(FILE *fp, double **A, int m, int n)
 }
 
 /*
-  symmetrize a matrix
-*/
-double sym_mat(double **mat, int m)
-{
-  double x,sum;
-  int i,j;
-
-  sum=0.0;
-  for(i=0;i<m;i++)
-    for(j=0;j<i;j++) {
-      sum += fabs(mat[i][j]-mat[j][i]);
-      x = mat[i][j]+mat[j][i];
-      mat[i][j]=mat[j][i]=0.5*x;
-    }
-  return sum;
-}
-
-/*
   INVERSION OF MATRIX ON LU DECOMPOSITION
 */
 void luinverse(double **omtrx, double **imtrx, int size) /* From Molphy */
@@ -666,3 +648,89 @@ int *perm_ivec(int *px, int *iv, int n)
 
   return iv;
 }
+
+
+/*
+  OTHERS
+*/	
+
+/*
+  symmetrize a matrix
+*/
+double sym_mat(double **mat, int m)
+{
+  double x,sum;
+  int i,j;
+
+  sum=0.0;
+  for(i=0;i<m;i++)
+    for(j=0;j<i;j++) {
+      sum += fabs(mat[i][j]-mat[j][i]);
+      x = mat[i][j]+mat[j][i];
+      mat[i][j]=mat[j][i]=0.5*x;
+    }
+  return sum;
+}
+
+/* weighted least squares fitting
+
+   X: m x n matrix of predictors
+   Y: n vector of response
+   W: n vector of weight
+
+   min RSS(beta), where
+   RSS = sum_{k=0,...,n} W[k]*(Y[k] - sum_{i=0,...,m} X[i][k]*beta[i])
+
+   returns beta and rss
+   *acmat may refer to the accuracy matrix
+
+ */
+
+double *lsfit(double **X, double *Y, double *W,
+	      int m, int n,
+	      double *beta, double *rss, double ***acmat)
+{
+  int i,j,k;
+  double x,y;
+  static double **covmat=NULL, **invmat=NULL, *xyvec=NULL;
+  static int m0=0;
+
+  /* memory allocation */
+  if(m0!=m){
+    covmat=renew_mat(covmat,m,m);
+    invmat=renew_mat(invmat,m,m);
+    xyvec=renew_vec(xyvec,m);
+    m0=m;
+  }
+  if(!beta) beta=new_vec(m);
+  if(acmat) *acmat=invmat; /* reference only */
+
+  /* getting covariances */
+  for(i=0;i<m;i++) {
+    for(x=0.0,k=0;k<n;k++) x+=X[i][k]*Y[k]*W[k];
+    xyvec[i]=x;
+    for(j=0;j<=i;j++) {
+      for(x=0.0,k=0;k<n;k++) x+=X[i][k]*X[j][k]*W[k];
+      covmat[i][j]=covmat[j][i]=x;
+    }
+  }
+
+  /* invmat = inverse matrix of covmat */
+  luinverse(covmat,invmat,m);
+
+  /* calculate the beta */
+  for(i=0;i<m;i++) {
+    for(x=0.0,j=0;j<m;j++) x+=invmat[i][j]*xyvec[j];
+    beta[i]=x;
+  }
+
+  /* obtain the rss */
+  for(x=0.0,k=0;k<n;k++) {
+    for(y=0.0,i=0;i<m;i++) y+=X[i][k]*beta[i];
+    x+=W[k]*(Y[k]-y)*(Y[k]-y);
+  }
+  *rss=x;
+  
+  return beta;
+}
+
