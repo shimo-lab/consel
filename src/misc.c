@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2001-05-29 12:10:45 shimo>
+  Time-stamp: <2001-06-07 10:04:20 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -22,7 +22,7 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.4 2001/05/05 09:06:26 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.5 2001/05/29 06:29:39 shimo Exp shimo $";
 
 /*
   error message handling
@@ -130,8 +130,8 @@ double **renew_mat(double **old, int m, int n)
 
 void free_mat(double **buf)
 {
-  FREE(buf[0]);
-  FREE(buf);
+  if(buf && buf[0]) FREE(buf[0]);
+  if(buf) FREE(buf);
 }
 
 /* skipjunk -- skips white spaces and strings of the form #....\n
