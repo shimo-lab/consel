@@ -1,6 +1,6 @@
 /* randrep.c
 
-  Time-stamp: <2001-05-16 08:29:43 shimo>
+  Time-stamp: <2001-06-01 07:54:26 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,7 +18,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: randrep.c,v 1.1 2001/05/16 22:14:57 shimo Exp shimo $";
+static const char rcsid[] = "$Id: randrep.c,v 1.2 2001/05/29 06:34:33 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -285,7 +285,7 @@ int write_rep(char *fname)
   int i;
 
   if(fname) { /* binary write to file */
-    fp=openfp(fname,fext_rep,"w",&cbuf);
+    fp=openfp(fname,fext_rep,"wb",&cbuf);
     printf("\n# writing %s",cbuf);
     fwrite_bivec(fp,orderv,cm); fwrite_bvec(fp,obsvec,cm);
     fwrite_bvec(fp,rr,kk); fwrite_bivec(fp,bb,kk);
@@ -314,7 +314,7 @@ int write_rmt(char *fname)
   int i;
 
   if(fname) { /* binary write to file */
-    fp=openfp(fname,fext_rmt,"w",&cbuf);
+    fp=openfp(fname,fext_rmt,"wb",&cbuf);
     printf("\n# writing %s",cbuf);
     fwrite_bvec(fp,datvec,mm);
     fwrite_bvec(fp,rr,kk); fwrite_bivec(fp,bb,kk);

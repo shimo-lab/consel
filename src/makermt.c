@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2001-05-29 14:21:08 shimo>
+  Time-stamp: <2001-06-01 07:50:38 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -22,7 +22,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.6 2001/05/16 22:14:24 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.7 2001/05/29 06:28:38 shimo Exp shimo $";
 
 
 /*
@@ -230,7 +230,7 @@ int main(int argc, char** argv)
   }
   if(fname_mt && !fname_rmt) fname_rmt=rmvaxt(fname_mt);  
   if(fname_rmt!=NULL) { /* binary write to file */
-    fp=openfp(fname_rmt,fext_rmt,"w",&cbuf);
+    fp=openfp(fname_rmt,fext_rmt,"wb",&cbuf);
     printf("\n# writing %s",cbuf);
     fwrite_bvec(fp,datvec,mm);
     fwrite_bvec(fp,rr,kk);

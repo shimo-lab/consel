@@ -2,7 +2,7 @@
 
   catrep.c : join and select rep files
 
-  Time-stamp: <2001-05-11 08:08:26 shimo>
+  Time-stamp: <2001-06-01 07:53:32 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catrep.c,v 1.3 2001/05/16 22:17:54 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catrep.c,v 1.4 2001/05/29 06:34:44 shimo Exp shimo $";
 
 typedef struct {
   int kk; /* number of scales */
@@ -128,7 +128,7 @@ int main(int argc, char** argv)
 
   for(ifile=0;ifile<nfile;ifile++){
     cbuf=mstrcat(fnamev_in[ifile],mode_rmt?fext_rmt:fext_rep);
-    if((fp=fopen(cbuf,"r"))==NULL) error("cant open %s",cbuf);
+    if((fp=fopen(cbuf,"rb"))==NULL) error("cant open %s",cbuf);
     printf("\n# reading %s.",cbuf);
 
     rp=repins[ifile]=NEW_A(1,repstat);
@@ -256,7 +256,8 @@ int main(int argc, char** argv)
 
   /* output */
   fname_out = mstrcat(fname_out,mode_rmt?fext_rmt:fext_rep);
-  if((fp=fopen(fname_out,"w"))==NULL) error("cant open %s",fname_out);
+  if((fp=fopen(fname_out,sw_asciiout?"w":"rb"))==NULL)
+    error("cant open %s",fname_out);
   printf("\n# writing %s.",fname_out);
   if(sw_asciiout) {
     if(!mode_rmt) fwrite_ivec(fp,repout.ord,repout.cm);
