@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2001-06-23 14:50:28 shimo>
+  Time-stamp: <2002-02-13 12:09:16 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -22,7 +22,7 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.6 2001/06/08 01:23:37 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.7 2001/08/10 05:57:08 shimo Exp shimo $";
 
 /*
   error message handling
@@ -245,7 +245,7 @@ char *rmvaxt(char *name)
     len=i; /* some extension */
   out=NEW_A(len+1,char);
   for(i=0;i<len;i++) out[i]=name[i];
-  name[i]=0;
+  out[i]=0;
   return out;
 }
 /*
@@ -285,6 +285,28 @@ double fread_d(FILE *fp)
   return x;
 }
 
+char *fread_s(FILE *fp)
+{
+  static char buf[BUFSIZ];
+  char *word;
+  int i,c;
+    
+  fskipjunk(fp);
+  for(i=0; i<BUFSIZ; i++){
+    c=getc(fp);
+    if(isspace(c)) break;
+    buf[i]=c;
+  }
+  if(i<BUFSIZ) ungetc(c,fp);
+  else error("too long word");
+
+  word=NEW_A(i+1,char);
+  word[i]='\0';
+  while(i-- > 0) word[i]=buf[i];
+
+  return word;
+}
+
 double *fread_vec(FILE *fp, int *mp)
 {
   int i,m;
@@ -313,6 +335,23 @@ int *fread_ivec(FILE *fp, int *mp)
   if(m>0) {
     A = new_ivec(m);
     for(i=0;i<m;i++) A[i]=fread_i(fp);
+  } else A = NULL;
+
+  *mp = m;
+  return A;
+}
+
+char **fread_svec(FILE *fp, int *mp)
+{
+  int i,m;
+  char **A;
+
+  m=fread_i(fp); /* number of items */
+  if(*mp>0 && *mp != m) error("size mismatch in svec");
+
+  if(m>0) {
+    A = NEW_A(m,char*);
+    for(i=0;i<m;i++) A[i]=fread_s(fp);
   } else A = NULL;
 
   *mp = m;
@@ -964,3 +1003,8 @@ int argmax_vec(double *vec, int n)
   return k;
 }
 
+
+double fsquare(double x)
+{
+  return x*x;
+}
