@@ -2,14 +2,14 @@
 
   catci.c : cat ci-files
 
-  Time-stamp: <2001-05-07 16:36:33 shimo>
+  Time-stamp: <2001-06-27 09:52:53 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
 
   typical usage:
-  # foo.pv -> foo.out
-  catpv foo
+  # display foo.ci
+  catci foo
 
 */
 
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catci.c,v 1.1 2001/05/05 09:09:09 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catci.c,v 1.2 2001/05/29 06:37:24 shimo Exp shimo $";
 
 char *fext_ci = ".ci";
 
@@ -33,7 +33,7 @@ int main(int argc, char** argv)
   /* working variables */
   int i,j,ifile,nfile,cm,w,w2;
   FILE *fp;
-  char *fname;
+  char *cbuf;
   double *alphavec=NULL;
   double **cimat=NULL, **semat=NULL, **eimat=NULL;
   double **ci0mat=NULL, **se0mat=NULL, **ei0mat=NULL;
@@ -58,16 +58,14 @@ int main(int argc, char** argv)
       sw_verpose=1;
     } else if(streq(argv[i],"--no_au")) {
       sw_au=0;
-    } else if(streq(argv[i],"--no_bp")) {
+    } else if(streq(argv[i],"--no_np")) {
       sw_bp=0;
     } else byebye();
   }
 
   for(ifile=0;ifile<nfile;ifile++) {
-    fname=mstrcat(fnamev[ifile],fext_ci);
-    fp=fopen(fname,"r");
-    if(fp==NULL) error("cant open %s",fname);
-    else printf("\n# read %s",fname);
+    fp=openfp(fnamev[ifile],fext_ci,"r",&cbuf);
+    printf("\n# reading %s",cbuf);
     cm=nalpha=0;
     orderv=fread_ivec(fp,&cm); obsvec=fread_vec(fp,&cm);
     alphavec=fread_vec(fp,&nalpha);
@@ -87,7 +85,7 @@ int main(int argc, char** argv)
     }
     printf(" |");
     if(sw_bp) {
-      repchar('-',w2); printf(" bp "); repchar('-',w-w2-4);
+      repchar('-',w2); printf(" np "); repchar('-',w-w2-4);
     }
     printf("\n# %4s %4s","rank","item");
     printf(" %6s","obs");
