@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2002-03-03 23:06:03 shimo>
-  $Id: misc.h,v 1.8 2002/02/28 07:45:54 shimo Exp shimo $
+  Time-stamp: <2002-04-17 00:57:38 shimo>
+  $Id: misc.h,v 1.9 2002/03/03 14:57:27 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -72,7 +72,7 @@ double **fread_lmat(FILE *fp, int *mp, int *np);
 #define read_mat(mp,np) fread_mat(STDIN,mp,np)
 #define read_lmat(mp,np) fread_lmat(STDIN,mp,np)
 double **freread_mat(FILE *fp, int *mp, int *np, double **buf);
-#define reread_mat(mp,np,buf) fread_mat(STDIN,mp,np,buf)
+#define reread_mat(mp,np,buf) freread_mat(STDIN,mp,np,buf)
 int fwrite_i(FILE *fp, int x);
 #define write_i(x) fwrite_i(STDOUT,x)
 int fwrite_d(FILE *fp, double x);
