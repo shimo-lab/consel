@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2001-05-25 15:23:08 shimo>
+  Time-stamp: <2001-05-30 07:13:48 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.2 2001/05/16 22:12:41 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.3 2001/05/29 06:35:31 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -129,6 +129,7 @@ double varadd=1.0; /* adding to wtmat */
 #define VARADDWARN 100.0 /* warning if var < varadd*VARADDWARN */
 #define HUGENUM 1.0e30;
 double kappa=1.0; /* weight for the curvature */
+double vceps2;
 
 /* for mc-tests: p-values and se (cm-vector) */
 double *npvec, *nsvec; /* naive p-value */
@@ -259,6 +260,11 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"--cieps")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&cieps) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--vceps2")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&vceps2) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"--rmin")) {
@@ -1232,6 +1238,7 @@ double calckhpval(double *datvec, double **repmat, int mm, int nb,
   if(nb>nb0) {repvec=renew_vec(repvec,nb); nb0=nb;}
   if(alen>alen0) {stat=renew_vec(stat,alen); alen0=alen;}
 
+  i0=j0=jj=0; /* supress warning */
   /* find the "contrast" that is effective (min-max) */
   if(wt) {
     x0=HUGENUM;
@@ -1355,7 +1362,7 @@ int rcalpval(double *cnts, double *rr, int *bb, int kk,
 {
   static int kk0=0;
   static double *rr0=NULL;
-  int i,i1,i2,j;
+  int i,i1,i2,j=1;
   double pfit;
 
   if(kk>kk0){
@@ -1382,11 +1389,10 @@ int rcalpval(double *cnts, double *rr, int *bb, int kk,
   return j;
 }
 
-
-#define VCLOOPMAX 30
-#define VCSCALE 0.5     
-#define VCEPS1 0.01
-#define VCEPS2 0.1
+int vcloopmax=30;
+double vcscale=0.5;
+double vceps1=0.01;
+double vceps2=0.1;
 int dfmin=0;
 int vcalpval(double **statps, double *rr, int *bb, int kk,
 	     double threshold, double *thp,
@@ -1413,15 +1419,16 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
 
   *pvp=*sep=*pv0p=*se0p=*rssp=*dfp=*thp=0.0;*betap=NULL;*vmatp=NULL;
   z=ze=0.0; th=threshold; idf0=-2;
+  z0=ze0=0.0;
   /* iteration */
-  for(j=0;j<VCLOOPMAX;j++) {
+  for(j=0;j<vcloopmax;j++) {
     x=xn;
     /* get cnts */
     for(i=0;i<kk;i++) cntvec[i]=cntdist(statps[i],bb[i],x,3);
     /* get pvalue */
     i=calcpval(cntvec,rr,bb,kk,&pv,&se,&pv0,&se0,
 	       &rss,&df,&beta,&vmat,rrmin,rrmax,kappa);
-    idf=df;
+    idf=(int)df;
     if(vmat) {
       z=beta[0]-kappa*beta[1];
       ze=sqrt(vmat[0][0]+kappa*kappa*vmat[1][1]
@@ -1432,14 +1439,14 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
 
     if(idf < dfmin && idf0 < dfmin) return 1; /* degenerated */
     if((idf < dfmin) || 
-       (idf0 >= dfmin && (z-z0)*(x-*thp) > 0.0 && fabs(z-z0)>VCEPS2*ze0) ) {
+       (idf0 >= dfmin && (z-z0)*(x-*thp) > 0.0 && fabs(z-z0)>vceps2*ze0) ) {
       dprintf(1,"\n# non-monotone");
-      th=x; xn=VCSCALE*x+(1.0-VCSCALE)*(*thp);
+      th=x; xn=vcscale*x+(1.0-vcscale)*(*thp);
       continue;
     }
-    if(idf0 >= dfmin && (fabs(z-z0)<VCEPS1*ze0)) {
+    if(idf0 >= dfmin && (fabs(z-z0)<vceps1*ze0)) {
       if(th==threshold) xn=th; else th=x;
-    } else xn=VCSCALE*th+(1.0-VCSCALE)*x;
+    } else xn=vcscale*th+(1.0-vcscale)*x;
     *pvp=pv;*sep=se;*rssp=rss;*dfp=df;*betap=beta;*vmatp=vmat;*thp=x;
     *pv0p=pv0;*se0p=se0;
     z0=z;ze0=ze; idf0=idf;
