@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.1 2001/05/29 05:09:11 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.2 2001/08/10 06:01:01 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -123,8 +123,17 @@ int fread_i_noerror(FILE *fp)
   return x;
 }
 
+int fread_d_noerror(FILE *fp)
+{
+  double x;
+  fskipjunk(fp);
+  x = 0.0;
+  fscanf(fp,"%lf",&x);
+  return x;
+}
+
 #define INIT_VEC_SIZE 500
-double **fread_mat_paup(FILE *fp, int *mp, int *np)
+double **fread_mat_paup1(FILE *fp, int *mp, int *np)
 {
   int m,n,t,len;
   double **A;
@@ -153,4 +162,75 @@ double **fread_mat_paup(FILE *fp, int *mp, int *np)
   *mp = m;
   free( V );
   return A;
+}
+
+int skip_head(FILE *fp)
+{
+  int n;
+
+  while( !ferror( fp ) && !feof( fp ) ) {
+    n = fread_i_noerror(fp);
+    if( n ) return 1;
+    fskipline(fp);
+  }
+  return 0;
+}
+
+int skip_next(FILE *fp)
+{
+  double v;
+
+  while( !ferror( fp ) && !feof( fp ) ) {
+    v = fread_d_noerror(fp);
+    fskipline(fp);
+    if( v != 0.0 ) return 1;
+  }
+  return 0;
+}
+
+double **fread_mat_paup2(FILE *fp, int *mp, int *np)
+{
+  int m,n,t,len;
+  double **A;
+  double *V;
+
+  m = 0;
+  len = INIT_VEC_SIZE;
+  A = NULL; V = NULL;
+  skip_head(fp);
+  while( skip_next(fp) ) {
+    for( n = 0; !ferror(fp) && !feof(fp); fskipjunk(fp) ) {
+      t = fread_i_noerror(fp);
+      if( t != n + 1 )
+	break;
+      if( V == NULL || t > len ) {
+	len *= 2;
+	V = (double *)renew_vec(V, len);
+      }
+      V[n++] = fread_d(fp);
+    }
+    if(*np>0 && *np != n) error("size of columns mismatch in mat");
+    *np = n;
+    A = (double **)renew_mat( A, m + 1, n );
+    memcpy( A[m++], V, n * sizeof(double) );
+  }
+  if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
+  *mp = m;
+  free( V );
+  return A;
+}
+
+#define PAUP2HEAD "Tree\t-lnL\tSite"
+double **fread_mat_paup(FILE *fp, int *mp, int *np)
+{
+  char buff[sizeof PAUP2HEAD];
+  int r;
+  
+  r = fread_line( fp, buff, sizeof PAUP2HEAD );
+  fskipline(fp);
+  if( r == sizeof PAUP2HEAD
+      && strncmp( PAUP2HEAD, buff, sizeof PAUP2HEAD - 1 ) == 0 )
+    return fread_mat_paup2(fp, mp, np);
+  else
+    return fread_mat_paup1(fp, mp, np);
 }
