@@ -1,6 +1,6 @@
 % aut/tex/program.tex
-% $Id: program.tex,v 1.2 2001/12/10 06:32:51 shimo Exp shimo $
-\def\documentid{\getTime-stamp: "2002-01-10 11:48:56 shimo"}
+% $Id: program.tex,v 1.3 2002/01/10 02:49:24 shimo Exp shimo $
+\def\documentid{\getTime-stamp: "2002-01-24 11:52:44 shimo"}
 \def\getTime-stamp: "#1"{#1}
 
 \documentclass[12pt]{article}
@@ -44,7 +44,7 @@
 
 {aut/src/program.tex\hfill \documentid}
 \begin{center}
- \bf\large CONSEL program user's guide (V0.1d-pre)\\[3ex]
+ \bf\large CONSEL program user's guide (V0.1d)\\[3ex]
  Hidetoshi Shimodaira\\[2ex]
  \normalsize
  The Institute of Statistical Mathematics\\
@@ -297,9 +297,11 @@ consel -C goo hoo
 produces {\tt hoo.pv} from {\tt goo.cnt}.  
 
 
-The option {\tt -m} changes the interanl curve fitting of the asymptotic
-theory from the weighted least squares method to the maximum likleihood
-method.
+Now maximum likelihood method is used for interanl curve fitting of the
+asymptotic theory. The option {\tt --wls} changes the fitting from
+maximum likelihood method to weighted least squares method.  The option
+{\tt --mle} does nothing, but assures that maximum likelihood method is
+used.
 
 The option {\tt -f} changes the resampling algorithm to the rescaling
 approximation. This uses only the replicates with $r_k=1$ in {\tt rmt}
@@ -368,7 +370,9 @@ different ideas, thus the values can be very different to each other.
 The first two $p$-values (au, np) are calculated from all the $K$ sets
 of the scaled bootstrap replicates, and the rest of five $p$-values
 (bp, kh, sh, wkh, wsh) are calculated from one set of replicates with
-$r_k=1$.
+$r_k=1$. The newly added column pp is calculated from the log-likelihood
+values.
+
 \begin{description}
  \item[$\bullet$ au] The $p$-value of the approximately unbiased
 	    test. This is the main result of {\tt consel}, while rest of
@@ -392,6 +396,8 @@ $r_k=1$.
 	    replicates of $r_k=1$. By definition, $\sum_{i=1}^M
 	    {\rm BP}_i = 1$. ${\rm NP}_i $ should be very close to
 	    ${\rm BP}_i$ unless the theory breaks down.
+ \item[$\bullet$ pp] Bayesian posterior probability (PP) calculated by
+	    the BIC approximation.
  \item[$\bullet$ kh] The $p$-value of the Kishino-Hasegawa (KH) test.
  \item[$\bullet$ sh] The $p$-value of the Shimodaira-Hasegawa (SH) test.
  \item[$\bullet$ wkh] The $p$-value of the weighted Kishino-Hasegawa
@@ -647,7 +653,7 @@ $1,\ldots,m$ of the table above are specified in {\tt mam15.log} given
 below.
 {\small
 \begin{verbatim}
-# $Id: program.tex,v 1.2 2001/12/10 06:32:51 shimo Exp shimo $
+# $Id: program.tex,v 1.3 2002/01/10 02:49:24 shimo Exp shimo $
 # reading mam15.tpl
 # 15 trees read
 # 15 trees, 6 leaves
@@ -1032,14 +1038,9 @@ treeass -p -v hoo tree105 treeout > treeout.log
 
 \subsection{Only sh-tests}
 
-First, prepare the {\tt pa} file of $K=1$ and $r_1=1$. For example, {\tt
-r10.pa} consists of the following line.
+Use {\tt -f option} for {\tt makermt} followed by {\tt consel}.
 \begin{verbatim}
-1 1.0 1 10000
-\end{verbatim}
-Then, run makermt and consel as usual.
-\begin{verbatim}
-makermt -p r10 --paml mam15 mam15sh
+makermt -f --paml mam15 mam15sh
 consel mam15sh
 catpv mam15sh
 \end{verbatim}
@@ -1105,11 +1106,11 @@ Text files: {\tt mt}, {\tt vt}, {\tt pv}, {\tt ci}, {\tt pa}, {\tt ass},
  \item Shimodaira, H. (2000) ``Another calculation of the p-value for the
        problem of regions using the scaled bootstrap
        resamplings,'' Technical Report No. 2000-35, Stanford University.
- \item Shimodaira, H. (submitted) ``Approximately unbiased test of
+ \item Shimodaira, H. (submitted) ``An approximately unbiased test of
        phylogenetic tree selection," {\it Systematic Biology}.
  \item Shimodaira, H. and Hasegawa, M. (2001) ``CONSEL:~for assessing the
        confidence of phylogenetic tree selection,''  {\it
-       Bioinformatics,} (inpress).
+       Bioinformatics,} {\bf 17}, 1246--1247.
 \end{itemize}
 
 Please refer to Shimodaira and Hasegawa (2001) for the program CONSEL,
