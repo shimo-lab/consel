@@ -1,6 +1,6 @@
 /*  seqmt.c : sequence to mt file converter  */
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: seqmt.c,v 1.1 2001/05/29 05:09:46 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
     printf("\n# writing %s",cbuf);
   } else {
     fp=STDOUT;
-    printf("\n# writing to stdout");
+    printf("\n# writing to stdout\n");
   }
   fwrite_mat(fp, mat, m, n);
   if(fname_out) {fclose(fp);  FREE(cbuf);}
