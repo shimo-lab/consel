@@ -1,7 +1,7 @@
 /*
   treeass.c : find the associations of the trees
 
-  Time-stamp: <2002-04-17 00:46:46 shimo>
+  Time-stamp: <2002-04-17 11:20:23 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,7 +18,7 @@
 #include "misc.h"
 #include "tree.h"
 
-static const char rcsid[] = "$Id: treeass.c,v 1.4 2001/08/10 06:04:16 shimo Exp shimo $";
+static const char rcsid[] = "$Id: treeass.c,v 1.5 2002/04/16 15:59:38 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -41,8 +41,7 @@ ivec *splitbase; /* base splits */
 ivec **splittree; /* the table from split to tree */
 
 int sw_nleaf=0;
-int sw_prtlabel=0;
-int sw_hist=0;
+int sw_prtlabel=1;
 
 int *treehist,*treeorder,ntree2;
 
@@ -56,14 +55,12 @@ void fprintsplit(FILE *fp, Snode *sp)
   if(ioutgroup>=1 && ioutgroup<=sp->len) o=sp->set[ioutgroup];
   m=o?'+':'-'; p=o?'-':'+'; 
 
-  for(j=1;j<sp->len;j++) 
+  for(j=1;j<sp->len;j++)
     if(sp->set[j]==0) putc(m,fp);
     else if(sp->set[j]==1) putc(p,fp);
     else fprintf(fp,"%d",sp->set[j]);
   for(;j<=nleaf;j++) putc(m,fp);
 }
-
-
 
 int main(int argc, char** argv)
 {
@@ -77,6 +74,7 @@ int main(int argc, char** argv)
   Tnode **treevec0;
   int ntree0;
   char *cbuf;
+  double x;
 
   printf("# %s",rcsid);
 
@@ -95,7 +93,7 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"-l")) {
       sw_nleaf=1;
     } else if(streq(argv[i],"-p")) {
-      sw_prtlabel=1;
+      sw_prtlabel=!sw_prtlabel;
     } else if(streq(argv[i],"-d")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%d",&debugmode) != 1)
@@ -110,8 +108,6 @@ int main(int argc, char** argv)
       if(i+1>=argc) byebye();
       fname_vt=argv[i+1];
       i+=1;
-    } else if(streq(argv[i],"-c")) {
-      sw_hist=1;
     } else byebye();
   }
 
@@ -224,26 +220,24 @@ int main(int argc, char** argv)
   FREE(ibuf);
 
 
-  /* hist */
-  if(sw_hist) {
-    treehist=new_ivec(ntree); treeorder=new_ivec(ntree);
-    for(i=0;i<ntree;i++) {
-      treehist[i]=0;
-      for(j=0;j<i;j++) {
-	if(treesplit[j]->len != treesplit[i]->len) continue;
-	for(k=0;k<treesplit[i]->len;k++)
-	  if(treesplit[j]->ve[k] != treesplit[i]->ve[k]) break;
-	if(k!=treesplit[i]->len) continue;
-	/* found the same tree */
-	break;
-      }
-      treehist[j]--; /* for sorting */
+  /* making histogram */
+  treehist=new_ivec(ntree); treeorder=new_ivec(ntree);
+  for(i=0;i<ntree;i++) {
+    treehist[i]=0;
+    for(j=0;j<i;j++) {
+      if(treesplit[j]->len != treesplit[i]->len) continue;
+      for(k=0;k<treesplit[i]->len;k++)
+	if(treesplit[j]->ve[k] != treesplit[i]->ve[k]) break;
+      if(k!=treesplit[i]->len) continue;
+      /* found the same tree */
+      break;
     }
-    isort(treehist,treeorder,ntree);
-    ntree2=0;
-    for(i=0;i<ntree;i++)
-      if((treehist[i]=-treehist[i])) ntree2++;
+    treehist[j]--; /* for sorting */
   }
+  isort(treehist,treeorder,ntree);
+  ntree2=0;
+  for(i=0;i<ntree;i++)
+    if((treehist[i]=-treehist[i])) ntree2++;
 
   /****************************************/
 
@@ -251,26 +245,14 @@ int main(int argc, char** argv)
 	  splitbase->len,splitcom->len-1,1);
 
   /* print trees */
-  if(sw_hist) {
-    sw_prtlabel=!sw_prtlabel; /* negate sw */
-    fprintf(fpl,"\n\n# trees: %d out of %d",ntree2,ntree);
-    fprintf(fpl,"\n%d\n",ntree2);
-    for(i=0;i<ntree2;i++) {
-      fwrite_rtree(fpl,treevec[treeorder[i]],sw_prtlabel?&wlist:NULL);
-      fprintf(fpl," %d",treehist[i]); 
-      fprintf(fpl," <- %d",treeorder[i]+1); 
-      if(orderv) fprintf(fpl," <- %d",orderv[treeorder[i]]+1); 
-      fprintf(fpl,"\n");
-    }
-  } else {
-    fprintf(fpl,"\n\n# trees: %d",ntree);
-    fprintf(fpl,"\n%d\n",ntree);
-    for(i=0;i<ntree;i++) {
-      fwrite_rtree(fpl,treevec[i],sw_prtlabel?&wlist:NULL);
-      fprintf(fpl," %d",i+1); 
-      if(orderv) fprintf(fpl," <- %d",orderv[i]+1); 
-      fprintf(fpl,"\n");
-    }
+  fprintf(fpl,"\n\n# trees: %d out of %d",ntree2,ntree);
+  fprintf(fpl,"\n%d\n",ntree2);
+  for(i=0;i<ntree2;i++) {
+    fwrite_rtree(fpl,treevec[treeorder[i]],sw_prtlabel?&wlist:NULL);
+    x=(double)treehist[i]/ntree;
+    fprintf(fpl," %d <- %d (%6.4f)",i+1,treeorder[i]+1,x); 
+    if(orderv) fprintf(fpl," <- %d",orderv[treeorder[i]]+1); 
+    fprintf(fpl,"\n");
   }
 
   /* print leaves */
