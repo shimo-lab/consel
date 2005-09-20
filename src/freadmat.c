@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.4 2001/12/10 06:16:21 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.5 2002/08/20 15:24:05 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +19,21 @@ int fskipline(FILE *fp)
     if( feof(fp) )
       return 0;
     if( c == 0xa )
+      return 0;
+  }
+}
+
+int fskipword(FILE *fp)
+{
+  int c;
+
+  while( 1 ) {
+    c = getc(fp);
+    if( ferror(fp) )
+      return 1;
+    if( feof(fp) )
+      return 0;
+    if(isspace(c))
       return 0;
   }
 }
@@ -44,6 +59,33 @@ double **fread_mat_lls(FILE *fp, int *mp, int *np)
   *np = n;
   return A;
 }
+
+double **fread_mat_puzzle(FILE *fp, int *mp, int *np)
+{
+  int i,j,m,n;
+  double **A;
+
+  m=fread_i(fp); /* number of items (rows) */
+  n=fread_i(fp); /* number of samples (columns) */
+  fskipline(fp);
+  if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
+  if(*np>0 && *np != n) error("size of columns mismatch in mat");
+
+  if(m*n==0) return NULL;
+
+  A = new_mat(m,n);
+
+  for(i=0;i<m;i++) {
+    fskipjunk(fp);
+    fskipword(fp);
+    for(j=0;j<n;j++) A[i][j]=fread_d(fp);
+  }
+
+  *mp = m;
+  *np = n;
+  return A;
+}
+
 
 double **fread_mat_lfh(FILE *fp, int *mp, int *np)
      /* modified by shimo */

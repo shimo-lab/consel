@@ -1,20 +1,11 @@
 /*  seqmt.c : sequence to mt file converter  */
 
-static const char rcsid[] = "$Id: seqmt.c,v 1.2 2001/05/31 02:48:56 shimo Exp shimo $";
+static const char rcsid[] = "$Id: seqmt.c,v 1.3 2001/08/10 06:03:32 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "misc.h"
 #include "freadmat.h"
-
-enum seqfile {SEQ_MT, SEQ_MOLPHY, SEQ_PAML, SEQ_PAUP};
-
-int seqmode=SEQ_MT;
-
-char *fext_mt=".mt";
-char *fext_molphy=".lls";
-char *fext_paml=".lnf";
-char *fext_paup=".txt";
 
 void byebye() {error("error in command line");}
 
@@ -45,6 +36,8 @@ int main(int argc, char** argv)
       seqmode=SEQ_PAML;
     } else if(streq(argv[i],"--paup")) {
       seqmode=SEQ_PAUP;
+    } else if(streq(argv[i],"--puzzle")) {
+      seqmode=SEQ_PUZZLE;
     } else byebye();
   }
 
@@ -53,6 +46,7 @@ int main(int argc, char** argv)
   case SEQ_MOLPHY: fext=fext_molphy; break;
   case SEQ_PAML: fext=fext_paml; break;
   case SEQ_PAUP: fext=fext_paup; break;
+  case SEQ_PUZZLE: fext=fext_puzzle; break;
   case SEQ_MT: 
   default: fext=fext_mt; break;
   }
@@ -73,6 +67,8 @@ int main(int argc, char** argv)
     mat = fread_mat_lfh(fp, &m, &n); break;
   case SEQ_PAUP: 
     mat = fread_mat_paup(fp, &m, &n); break;
+  case SEQ_PUZZLE: 
+    mat = fread_mat_puzzle(fp, &m, &n); break;
   case SEQ_MT: 
   default: 
     mat = fread_mat(fp, &m, &n); break;  

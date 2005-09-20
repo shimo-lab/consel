@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2002-08-30 22:41:40 shimo>
+  Time-stamp: <2005-09-20 16:39:18 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -24,7 +24,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.12 2002/04/18 16:29:49 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.13 2002/08/30 13:48:34 shimo Exp shimo $";
 
 
 /*
@@ -84,16 +84,9 @@ char *fname_rmt = NULL;
 char *fname_vt = NULL;
 char *fname_svt = NULL;
 char *fext_pa = ".pa";
-char *fext_mt = ".mt";
 char *fext_rmt = ".rmt";
 char *fext_vt = ".vt";
 char *fext_svt = ".svt";
-
-enum seqfile {SEQ_MT, SEQ_MOLPHY, SEQ_PAML, SEQ_PAUP};
-int seqmode=SEQ_MT;
-char *fext_molphy=".lls";
-char *fext_paml=".lnf";
-char *fext_paup=".txt";
 
 double bbfact=1.0;
 
@@ -125,6 +118,7 @@ int genrmt(char *infile, char *outfile)
   case SEQ_MOLPHY: fext=fext_molphy; break;
   case SEQ_PAML: fext=fext_paml; break;
   case SEQ_PAUP: fext=fext_paup; break;
+  case SEQ_PUZZLE: fext=fext_puzzle; break;
   case SEQ_MT: 
   default: fext=fext_mt; break;
   }
@@ -145,6 +139,8 @@ int genrmt(char *infile, char *outfile)
     datmat = fread_mat_lfh(fp, &mm, &nn); break;
   case SEQ_PAUP: 
     datmat = fread_mat_paup(fp, &mm, &nn); break;
+  case SEQ_PUZZLE: 
+    datmat = fread_mat_puzzle(fp, &mm, &nn); break;
   case SEQ_MT: 
   default: 
     datmat = fread_mat(fp, &mm, &nn); break;  
@@ -267,6 +263,8 @@ int main(int argc, char** argv)
       seqmode=SEQ_PAML;
     } else if(streq(argv[i],"--paup")) {
       seqmode=SEQ_PAUP;
+    } else if(streq(argv[i],"--puzzle")) {
+      seqmode=SEQ_PUZZLE;
     } else byebye();
   }
 

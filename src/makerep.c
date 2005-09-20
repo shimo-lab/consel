@@ -2,7 +2,7 @@
 
   makerep.c : make rep-file by the RELL method
 
-  Time-stamp: <2002-08-30 21:51:01 shimo>
+  Time-stamp: <2005-09-20 16:40:48 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makerep.c,v 1.2 2001/08/10 06:05:31 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makerep.c,v 1.3 2002/08/30 13:49:18 shimo Exp shimo $";
 
 typedef struct {
   double *ve;
@@ -32,16 +32,10 @@ void byebye() {error("error in command line");}
 
 unsigned long seed=0;
 char *fname_pa = NULL; char *fext_pa = ".pa";
-char *fname_mt = NULL; char *fext_mt = ".mt";
+char *fname_mt = NULL;
 char *fname_vt = NULL; char *fext_vt = ".vt";
 char *fname_rep = NULL; char *fext_rep = ".rep";
 char *fname_ass = NULL; char *fext_ass = ".ass";
-
-enum seqfile {SEQ_MT, SEQ_MOLPHY, SEQ_PAML, SEQ_PAUP};
-int seqmode=SEQ_MT;
-char *fext_molphy=".lls";
-char *fext_paml=".lnf";
-char *fext_paup=".txt";
 
 /* msboot parameter */
 int kk,*bb,*bn;
@@ -131,6 +125,8 @@ int main(int argc, char** argv)
       seqmode=SEQ_PAML;
     } else if(streq(argv[i],"--paup")) {
       seqmode=SEQ_PAUP;
+    } else if(streq(argv[i],"--puzzle")) {
+      seqmode=SEQ_PUZZLE;
     } else byebye();
   }
 
@@ -158,6 +154,7 @@ int main(int argc, char** argv)
   case SEQ_MOLPHY: fext=fext_molphy; break;
   case SEQ_PAML: fext=fext_paml; break;
   case SEQ_PAUP: fext=fext_paup; break;
+  case SEQ_PUZZLE: fext=fext_puzzle; break;
   case SEQ_MT: 
   default: fext=fext_mt; break;
   }
@@ -178,6 +175,8 @@ int main(int argc, char** argv)
     datmat = fread_mat_lfh(fp, &mm, &nn); break;
   case SEQ_PAUP: 
     datmat = fread_mat_paup(fp, &mm, &nn); break;
+  case SEQ_PUZZLE: 
+    datmat = fread_mat_puzzle(fp, &mm, &nn); break;
   case SEQ_MT: 
   default: 
     datmat = fread_mat(fp, &mm, &nn); break;  
