@@ -1,6 +1,6 @@
 % aut/tex/program.tex
-% $Id: program.tex,v 1.3 2002/01/10 02:49:24 shimo Exp shimo $
-\def\documentid{\getTime-stamp: "2002-01-24 11:52:44 shimo"}
+% $Id: program.tex,v 1.4 2002/01/24 03:03:55 shimo Exp shimo $
+\def\documentid{\getTime-stamp: "2005-09-26 10:58:27 shimo"}
 \def\getTime-stamp: "#1"{#1}
 
 \documentclass[12pt]{article}
@@ -44,13 +44,15 @@
 
 {aut/src/program.tex\hfill \documentid}
 \begin{center}
- \bf\large CONSEL program user's guide (V0.1d)\\[3ex]
+ \bf\large CONSEL program user's guide (V0.1i)\\[3ex]
  Hidetoshi Shimodaira\\[2ex]
  \normalsize
- The Institute of Statistical Mathematics\\
- 4-6-7 Minami-Azabu, Minatoku, Tokyo 106-8569, JAPAN\\
- shimo@ism.ac.jp\\
- http://www.ism.ac.jp/\~{}shimo/
+
+ Department of Mathematical and Computing Sciences \\
+ Tokyo Institute of Technology \\
+ 2-12-1 Ookayama, Meguroku, Tokyo 152-8552, Japan\\
+ shimo@is.titech.ac.jp\\
+ http://www.is.titech.ac.jp/\~{}shimo/
 \end{center}
 
 \section{Introduction}
@@ -71,9 +73,9 @@ The programs are explained in \refsec{usage}.  For quick summary, just
 look at the sample sessions given in \refsec{sample}.
 
 The source code and the binary of CONSEL for UNIX and DOS are available
-from Hidetoshi Shimodaira at the Institute of Statistical
-Mathematics. Please contact him by email at shimo@ism.ac.jp. Any related
-information will be found at the web site www.ism.ac.jp/\~{}shimo/.
+from Hidetoshi Shimodaira at Tokyo Institute of Technology. Please
+contact him by email at shimo@is.titech.ac.jp. Any related information
+will be found at the web site www.is.titech.ac.jp/\~{}shimo/.
 
 
 
@@ -115,7 +117,7 @@ X_{2,1},\ldots,X_{2,N},\ldots, X_{M,1},\ldots,X_{M,N}$, in which the
 column index $n$ runs fast.
 
 The program {\tt seqmt} in CONSEL converts the formats of phylogeny
-packages Molphy, PAML, and PAUP to that of CONSEL.
+packages Molphy, PAML, PAUP*, and TREE-PUZZLE to that of CONSEL.
 \begin{itemize}
  \item Molphy produces {\tt lls} file for the site-wise log-likelihoods
        of trees. It is converted to {\tt mt} file by {\tt seqmt}. For
@@ -132,8 +134,7 @@ seqmt --paml foo
        Note that {\tt lnf} file was called {\tt lfh} file in the older
        versions of PAML.
  \item PAUP produces a text file for the site-wise log-likelihoods of
-       trees. I do not know what is it called in PAUP, but a version of
-       PAUP produces the file something like below.
+       trees; the file may look like below.
 \begin{verbatim}
 Tree    -lnL
 1       2345.033
@@ -153,10 +154,26 @@ Tree    -lnL    Site    -lnL
                 3       2.3223
 ...
 \end{verbatim}
+or
+\begin{verbatim}
+Tree    -lnL    Site    -lnL
+                1       2.3434
+                2       1.5679
+                3       2.3223
+...
+1       2345.033
+...
+\end{verbatim}
        Let us call it {\tt foo.txt} here.  It is converted to {\tt
        foo.mt} by the following command.
 \begin{verbatim}
 seqmt --paup foo
+\end{verbatim}
+ \item TREE-PUZZLE produces {\tt sitelh} file for the log-likelihoods of
+       site-patterns of trees.  For example, {\tt foo.sitelh} is converted
+       to {\tt foo.mt} as follows.
+\begin{verbatim}
+seqmt --puzzle foo
 \end{verbatim}
 \end{itemize}
 
@@ -187,7 +204,7 @@ which file type to be read. For example,
 makermt --paup foo
 \end{verbatim}
 reads {\tt foo.txt} of the paup file to generate {\tt foo.rmt}. The
-options {\tt --molphy} and {\tt --paml} are also used.
+options {\tt --molphy}, {\tt --paml}, and {\tt --puzzle} are also used.
 
 By default, {\tt makermt} generates 10 sets of bootstrap replicates;
 each set consists of 10000 replicates of the row sums.  These sets of
@@ -230,6 +247,10 @@ generates {\tt fooshort.rmt} with $10$ sets of 1000 replicates and one
 set of 10000 replicates; the total number of replicates is $\sum_{k=1}^K
 B_k= 20000$. 
 
+The option {\tt -b VAL} multiply the number of replicates by {\tt VAL}. For
+example, {\tt -b 10} is good for getting the final result with small
+sampling error.
+
 The option {\tt -f} changes the default values to
 \[
  r_1 = 1;\quad B_1=10000;\quad K=1.
@@ -237,8 +258,10 @@ The option {\tt -f} changes the default values to
 This may be useful when the multiscale bootstrap is not needed, or when
 the rescaling approximation is used in {\tt consel}.
 
-The option {\tt -s VAL} specifies the random seed to integer $0\le$ VAL
-$\le999$. The default value of the random seed is 123.
+The option {\tt -s VAL} specifies the random seed to integer {\tt VAL}
+$\ge0$. By default, {\tt VAL} = 0, and the radom seed is taken from the
+system clock.
+
 
 
 
@@ -350,7 +373,7 @@ There are 15 rows of the table, and each row corresponds to one of the
 items compared for selection. The items are sorted in the decreasing
 order of $Y_i$; the first column is the order of the item starting from
 1 to $M=15$.  The second column shows the index $i$ of the item; we may
-use the option {\tt -s} to sort the lines by the index $i$.  The third
+use the option {\tt -s 1} to sort the lines by the index $i$.  The third
 column shows the test statistics \[ T_i = \max_{j=1,\ldots,M} Y_j - Y_i
 \] for the items with ${\rm rank} \ge 2$. They are equivalent to
 \begin{equation}
@@ -413,7 +436,10 @@ There are several options to the command {\tt catpv}.
 	    distance. c:~curvature of the boundary. th:~the actual
 	    threshold used for au and np.
  \item[\tt -e] prints the standard errors of the $p$-values.
- \item[\tt -s] sort the lines by the item index.
+ \item[\tt -s 1] sort the lines by the item index.
+ \item[\tt -s 6] sort the lines by the SH $p$-value.
+ \item[\tt -s 9] sort the lines by the AU $p$-value.
+ \item[\tt -r] outputs the list of rank, order, and item.
  \item[\tt --no{\_}au]  suppresses printing au and np.
  \item[\tt --no{\_}sh]  suppresses printing bp, kh, sh, wkh, and wsh.
  \item[\tt --no{\_}print]  suppresses printing.
@@ -653,7 +679,7 @@ $1,\ldots,m$ of the table above are specified in {\tt mam15.log} given
 below.
 {\small
 \begin{verbatim}
-# $Id: program.tex,v 1.3 2002/01/10 02:49:24 shimo Exp shimo $
+# $Id: program.tex,v 1.4 2002/01/24 03:03:55 shimo Exp shimo $
 # reading mam15.tpl
 # 15 trees read
 # 15 trees, 6 leaves
@@ -1106,15 +1132,16 @@ Text files: {\tt mt}, {\tt vt}, {\tt pv}, {\tt ci}, {\tt pa}, {\tt ass},
  \item Shimodaira, H. (2000) ``Another calculation of the p-value for the
        problem of regions using the scaled bootstrap
        resamplings,'' Technical Report No. 2000-35, Stanford University.
- \item Shimodaira, H. (submitted) ``An approximately unbiased test of
-       phylogenetic tree selection," {\it Systematic Biology}.
+ \item Shimodaira, H. (2002) ``An approximately unbiased test of
+       phylogenetic tree selection," {\it Systematic Biology,} {\bf
+       51}, 492--508.
  \item Shimodaira, H. and Hasegawa, M. (2001) ``CONSEL:~for assessing the
        confidence of phylogenetic tree selection,''  {\it
        Bioinformatics,} {\bf 17}, 1246--1247.
 \end{itemize}
 
 Please refer to Shimodaira and Hasegawa (2001) for the program CONSEL,
-and refer to Shimodaira (submitted) for the theory of the approximately
+and refer to Shimodaira (2002) for the theory of the approximately
 unbiased test with application to the phylogenetic inference.
 
 \end{document}
