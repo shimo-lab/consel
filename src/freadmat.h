@@ -13,4 +13,4 @@ char *fext_mt=".mt";
 char *fext_molphy=".lls";
 char *fext_paml=".lnf";
 char *fext_paup=".txt";
-char *fext_puzzle=".txt";
+char *fext_puzzle=".sitelh";
