@@ -2,7 +2,7 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2005-09-20 16:39:18 shimo>
+  Time-stamp: <2007-03-24 09:55:40 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -24,7 +24,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.13 2002/08/30 13:48:34 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.14 2005/09/20 07:58:03 shimo Exp shimo $";
 
 
 /*
@@ -265,6 +265,11 @@ int main(int argc, char** argv)
       seqmode=SEQ_PAUP;
     } else if(streq(argv[i],"--puzzle")) {
       seqmode=SEQ_PUZZLE;
+    } else if(streq(argv[i],"-d")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&debugmode) != 1)
+	byebye();
+      i+=1;
     } else byebye();
   }
 

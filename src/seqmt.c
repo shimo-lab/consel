@@ -1,6 +1,6 @@
 /*  seqmt.c : sequence to mt file converter  */
 
-static const char rcsid[] = "$Id: seqmt.c,v 1.3 2001/08/10 06:03:32 shimo Exp shimo $";
+static const char rcsid[] = "$Id: seqmt.c,v 1.4 2005/09/20 07:57:58 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +38,11 @@ int main(int argc, char** argv)
       seqmode=SEQ_PAUP;
     } else if(streq(argv[i],"--puzzle")) {
       seqmode=SEQ_PUZZLE;
+    } else if(streq(argv[i],"-d")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&debugmode) != 1)
+	byebye();
+      i+=1;
     } else byebye();
   }
 

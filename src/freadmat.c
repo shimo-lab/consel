@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.5 2002/08/20 15:24:05 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.6 2005/09/20 07:57:16 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,6 +67,7 @@ double **fread_mat_puzzle(FILE *fp, int *mp, int *np)
 
   m=fread_i(fp); /* number of items (rows) */
   n=fread_i(fp); /* number of samples (columns) */
+  dprintf(2,"\nm=%d n=%d",m,n);
   fskipline(fp);
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   if(*np>0 && *np != n) error("size of columns mismatch in mat");
@@ -78,7 +79,11 @@ double **fread_mat_puzzle(FILE *fp, int *mp, int *np)
   for(i=0;i<m;i++) {
     fskipjunk(fp);
     fskipword(fp);
-    for(j=0;j<n;j++) A[i][j]=fread_d(fp);
+    dprintf(2,"\ni=%d",i+1);
+    for(j=0;j<n;j++) {
+      A[i][j]=fread_d(fp);
+      dprintf(2,"\n%d %lg",j+1, A[i][j]);
+    }
   }
 
   *mp = m;
@@ -96,6 +101,7 @@ double **fread_mat_lfh(FILE *fp, int *mp, int *np)
   m=fread_i(fp); /* number of items (rows) */
   n=fread_i(fp); /* number of sites (columns for output) */
   p=fread_i(fp); /* number of patterns (columns for input) */
+  dprintf(2,"\nm=%d n=%d p=%d",m,n,p);
   fskipline(fp);
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   if(*np>0 && *np != n) error("size of columns mismatch in mat");
@@ -106,12 +112,15 @@ double **fread_mat_lfh(FILE *fp, int *mp, int *np)
 
   for(i=0;i<m;i++) {
     t = fread_i(fp);
+    dprintf(2,"\ni=%d",t);
     if( t != i + 1) error("wrong row index");
     for(jj=j=0;j<p;j++) {
       t = fread_i(fp);
+      dprintf(2,"\n%d",t);
       if( t != j + 1) error("wrong column index");
       t = fread_i(fp); /* number of repeats */
       x = fread_d(fp); /* site-wise log-likelihood */
+      dprintf(2," %d %lg",t,x);
       fskipline(fp);
       for(k=0;k<t;k++) {
 	if(jj>=n) error("too many repeats");
@@ -216,7 +225,7 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
   n = m = 0;
   len = INIT_VEC_SIZE;
   A = NULL; V = NULL;
-
+  
   while(!ferror(fp) && !feof(fp)) {
     c=getc(fp);
     if(c=='#') {fskipline(fp); continue; }
@@ -227,12 +236,14 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
 	V = (double *)renew_vec(V, len);
       }
       V[n++] = -fread_d(fp);
+      dprintf(2,"\n%d %lg",n,V[n-1]);
       fskipline(fp);
     } else {
       fskipline(fp);
       if(n>0) {
 	if(*np>0 && *np != n) error("size of columns mismatch in mat");
 	*np = n;
+	dprintf(2,"\nn=%d",n);
 	A = (double **)renew_mat( A, m + 1, n );
 	memcpy( A[m++], V, n * sizeof(double) );
 	n=0;
@@ -241,6 +252,7 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
   }
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   *mp = m;
+  dprintf(2,"\nm=%d",m);
   free( V );
   return A;
 }
