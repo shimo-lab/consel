@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.6 2005/09/20 07:57:16 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.7 2007/03/24 00:57:12 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +20,18 @@ int fskipline(FILE *fp)
       return 0;
     if( c == 0xa )
       return 0;
+    /* handling of 0xd is contributed by Jeff Craig 20080827 */
+    if( c == 0xd ) {
+      c = getc(fp);
+      if ( c == 0xa ) {
+	// Dos-Windows style line endings
+	return 0;
+      } else {
+	// Mac style line endings
+	ungetc(c, fp);
+	return 0;
+      }
+    }
   }
 }
 
@@ -217,10 +229,12 @@ double **fread_mat_paup1(FILE *fp, int *mp, int *np)
 
 double **fread_mat_paup2(FILE *fp, int *mp, int *np)
 /* by shimo (20020820) */
+/* handling of gap is contributed by Jeff Craig 20080827  */
 {
   int m,n,len,c;
   double **A;
   double *V;
+  double t;
 
   n = m = 0;
   len = INIT_VEC_SIZE;
@@ -235,15 +249,18 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
 	len *= 2;
 	V = (double *)renew_vec(V, len);
       }
-      V[n++] = -fread_d(fp);
-      dprintf(2,"\n%d %lg",n,V[n-1]);
+      t = fread_d_paup2(fp); /* jeff craig */
+      // Drop gaps in the Paup data
+      if (t > 0) {
+	V[n++] = -t; /* modified by shimo */
+	dprintf(2,"\n%d %lg",n,V[n-1]);
+      }	
       fskipline(fp);
     } else {
       fskipline(fp);
       if(n>0) {
 	if(*np>0 && *np != n) error("size of columns mismatch in mat");
 	*np = n;
-	dprintf(2,"\nn=%d",n);
 	A = (double **)renew_mat( A, m + 1, n );
 	memcpy( A[m++], V, n * sizeof(double) );
 	n=0;
@@ -257,8 +274,9 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
   return A;
 }
 
-
 #define PAUP2HEAD "Tree\t-lnL\tSite"
+/* PAUP3HEAD is contributed by Jiaye Yu 20080617 */
+#define PAUP3HEAD "Tree\tLength\tCh"
 double **fread_mat_paup(FILE *fp, int *mp, int *np)
 {
   char buff[sizeof PAUP2HEAD];
@@ -266,9 +284,11 @@ double **fread_mat_paup(FILE *fp, int *mp, int *np)
   
   r = fread_line( fp, buff, sizeof PAUP2HEAD );
   fskipline(fp);
-  if( r == sizeof PAUP2HEAD
-      && strncmp( PAUP2HEAD, buff, sizeof PAUP2HEAD - 1 ) == 0 )
+
+  if( r == sizeof PAUP2HEAD && strncmp( PAUP2HEAD, buff, sizeof PAUP2HEAD - 1 ) == 0 ) {
     return fread_mat_paup2(fp, mp, np);
-  else
-    return fread_mat_paup1(fp, mp, np);
+  } else if( r == sizeof PAUP3HEAD && strncmp( PAUP3HEAD, buff, sizeof PAUP3HEAD - 1 ) == 0 ) {
+    return fread_mat_paup2(fp, mp, np);
+  } else 
+    return fread_mat_paup1(fp, mp, np);	
 }
