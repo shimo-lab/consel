@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2002-04-17 00:57:38 shimo>
-  $Id: misc.h,v 1.9 2002/03/03 14:57:27 shimo Exp shimo $
+  Time-stamp: <2008-09-12 17:02:34 shimo>
+  $Id: misc.h,v 1.10 2002/04/16 15:58:30 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -59,6 +59,7 @@ int fread_i(FILE *fp);
 #define read_i() fread_i(STDIN)
 double fread_d(FILE *fp);
 #define read_d() fread_d(STDIN)
+double fread_d_paup2(FILE *fp);
 char *fread_s(FILE *fp);
 #define read_s() fread_s(STDIN)
 double *fread_vec(FILE *fp, int *mp);

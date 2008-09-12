@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2002-03-03 23:05:47 shimo>
+  Time-stamp: <2008-09-12 16:58:40 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.9 2002/02/28 07:45:30 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.10 2002/03/03 14:57:19 shimo Exp shimo $";
 
 /*
   error message handling
@@ -293,6 +293,20 @@ double fread_d(FILE *fp)
   fskipjunk(fp);
   if(fscanf(fp,"%lf",&x)!=1) error("cant read double");
   return x;
+}
+
+/* handling of gap is contributed by Jeff Craig 20080827 */
+double fread_d_paup2(FILE *fp)
+{
+  int c;
+  fskipjunk(fp);
+  c = getc(fp);
+  if (c == '-') {
+    return -1.0;
+  } else {
+    ungetc(c, fp);
+    return fread_d(fp);
+  }
 }
 
 char *fread_s(FILE *fp)
