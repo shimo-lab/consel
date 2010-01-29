@@ -1,12 +1,14 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.7 2007/03/24 00:57:12 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.8 2008/09/12 08:17:03 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <math.h>
 #include "misc.h"
+
 
 int fskipline(FILE *fp)
 {
@@ -104,8 +106,10 @@ double **fread_mat_puzzle(FILE *fp, int *mp, int *np)
 }
 
 
+/** PAML (lfh file) **/
 double **fread_mat_lfh(FILE *fp, int *mp, int *np)
      /* modified by shimo */
+     /* updated: 2009/01/19 to look at only the first three columns */
 {
   int i,j,m,n,t,p,k,jj;
   double **A,x;
@@ -114,20 +118,22 @@ double **fread_mat_lfh(FILE *fp, int *mp, int *np)
   n=fread_i(fp); /* number of sites (columns for output) */
   p=fread_i(fp); /* number of patterns (columns for input) */
   dprintf(2,"\nm=%d n=%d p=%d",m,n,p);
-  fskipline(fp);
+  if(m<0) error("negative tree numbers");
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   if(*np>0 && *np != n) error("size of columns mismatch in mat");
+
+  fskipline(fp);
 
   if(m*n==0) return NULL;
 
   A = new_mat(m,n);
 
   for(i=0;i<m;i++) {
-    t = fread_i(fp);
+    t = fread_i(fp); /* tree id */
     dprintf(2,"\ni=%d",t);
     if( t != i + 1) error("wrong row index");
     for(jj=j=0;j<p;j++) {
-      t = fread_i(fp);
+      t = fread_i(fp); /* pattern id */
       dprintf(2,"\n%d",t);
       if( t != j + 1) error("wrong column index");
       t = fread_i(fp); /* number of repeats */
@@ -291,4 +297,64 @@ double **fread_mat_paup(FILE *fp, int *mp, int *np)
     return fread_mat_paup2(fp, mp, np);
   } else 
     return fread_mat_paup1(fp, mp, np);	
+}
+
+
+
+/*** PHYML by shimo (20100129) ***/
+#define PHYMLHEAD "Site   P(D|M)"
+int find_phymlhead(FILE *fp)
+{
+  char buff[sizeof PHYMLHEAD];
+  int r;
+
+  while( !ferror( fp ) && !feof( fp ) ) {
+    fskipjunk(fp);
+    r = fread_line( fp, buff, sizeof PHYMLHEAD );
+    fskipline(fp);
+    if( r == sizeof PHYMLHEAD 
+	&& strncmp( PHYMLHEAD, buff, sizeof PHYMLHEAD - 1 ) == 0 )
+      return 1;
+  }
+  return 0;
+}
+double **fread_mat_phyml(FILE *fp, int *mp, int *np)
+{
+  int m,n,len,t;
+  double **A;
+  double *V;
+  double x;
+
+  n = m = 0;
+  len = INIT_VEC_SIZE;
+  A = NULL; V = NULL;
+  
+  while(find_phymlhead(fp)) {
+    n=0; m++;
+    dprintf(2,"\ntree=%d",m);
+    while(!ferror(fp) && !feof(fp)) {
+      t = fread_i_noerror(fp); /* tree id */
+      dprintf(2,"\ni=%d",t);
+      if(t==0) break;
+      x = fread_d(fp); /* P(D|M) */
+      dprintf(2,"  p=%lg",x);
+      fskipline(fp);
+      if( V == NULL || n >= len ) {
+	len *= 2;
+	V = (double *)renew_vec(V, len);
+      }
+      V[n++] = log(x);  /* log P(D|M) */
+    }
+    if(n>0) {
+      if(*np>0 && *np != n) error("size of columns mismatch in mat");
+      *np = n;
+      A = (double **)renew_mat( A, m, n );
+      memcpy( A[m-1], V, n * sizeof(double) );
+    }
+  }
+  if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
+  *mp = m;
+  dprintf(2,"\nm=%d",m);
+  free( V );
+  return A;
 }

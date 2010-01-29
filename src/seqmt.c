@@ -1,6 +1,6 @@
 /*  seqmt.c : sequence to mt file converter  */
 
-static const char rcsid[] = "$Id: seqmt.c,v 1.4 2005/09/20 07:57:58 shimo Exp shimo $";
+static const char rcsid[] = "$Id: seqmt.c,v 1.5 2007/03/24 00:57:18 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +38,8 @@ int main(int argc, char** argv)
       seqmode=SEQ_PAUP;
     } else if(streq(argv[i],"--puzzle")) {
       seqmode=SEQ_PUZZLE;
+    } else if(streq(argv[i],"--phyml")) {
+      seqmode=SEQ_PHYML;
     } else if(streq(argv[i],"-d")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%d",&debugmode) != 1)
@@ -52,6 +54,7 @@ int main(int argc, char** argv)
   case SEQ_PAML: fext=fext_paml; break;
   case SEQ_PAUP: fext=fext_paup; break;
   case SEQ_PUZZLE: fext=fext_puzzle; break;
+  case SEQ_PHYML: fext=fext_phyml; break;
   case SEQ_MT: 
   default: fext=fext_mt; break;
   }
@@ -74,6 +77,8 @@ int main(int argc, char** argv)
     mat = fread_mat_paup(fp, &m, &n); break;
   case SEQ_PUZZLE: 
     mat = fread_mat_puzzle(fp, &m, &n); break;
+  case SEQ_PHYML: 
+    mat = fread_mat_phyml(fp, &m, &n); break;
   case SEQ_MT: 
   default: 
     mat = fread_mat(fp, &m, &n); break;  

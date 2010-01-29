@@ -2,9 +2,9 @@
 
   makermt.c : make rmt-file by the RELL method
 
-  Time-stamp: <2007-03-24 09:55:40 shimo>
+  Time-stamp: <2010-01-30 01:43:55 shimo>
 
-  shimo@ism.ac.jp 
+  shimo@is.titech.ac.jp
   Hidetoshi Shimodaira
 
   typical usage:
@@ -24,7 +24,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.14 2005/09/20 07:58:03 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.15 2007/03/24 00:57:22 shimo Exp shimo $";
 
 
 /*
@@ -119,6 +119,7 @@ int genrmt(char *infile, char *outfile)
   case SEQ_PAML: fext=fext_paml; break;
   case SEQ_PAUP: fext=fext_paup; break;
   case SEQ_PUZZLE: fext=fext_puzzle; break;
+  case SEQ_PHYML: fext=fext_phyml; break;
   case SEQ_MT: 
   default: fext=fext_mt; break;
   }
@@ -141,6 +142,8 @@ int genrmt(char *infile, char *outfile)
     datmat = fread_mat_paup(fp, &mm, &nn); break;
   case SEQ_PUZZLE: 
     datmat = fread_mat_puzzle(fp, &mm, &nn); break;
+  case SEQ_PHYML: 
+    datmat = fread_mat_phyml(fp, &mm, &nn); break;
   case SEQ_MT: 
   default: 
     datmat = fread_mat(fp, &mm, &nn); break;  
@@ -265,6 +268,8 @@ int main(int argc, char** argv)
       seqmode=SEQ_PAUP;
     } else if(streq(argv[i],"--puzzle")) {
       seqmode=SEQ_PUZZLE;
+    } else if(streq(argv[i],"--phyml")) {
+      seqmode=SEQ_PHYML;
     } else if(streq(argv[i],"-d")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%d",&debugmode) != 1)
