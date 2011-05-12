@@ -2,7 +2,7 @@
 
   misc.c: miscellaneous functions
 
-  Time-stamp: <2008-09-12 16:58:40 shimo>
+  Time-stamp: <2011-01-25 16:57:00 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,14 +20,14 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.10 2002/03/03 14:57:19 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.11 2008/09/12 08:17:05 shimo Exp shimo $";
 
 /*
   error message handling
 */
 
 int debugmode=0;
-void dprintf(int n, char *fmt, ...)
+void mydprintf(int n, char *fmt, ...)
 {
   va_list args;
   va_start(args,fmt);
@@ -744,7 +744,7 @@ void isort(int *xve, int *order, int dim)
   }
 }
 
-void psort(void **xve, int *order, int dim,int (*compar)(void *, void *))
+void mypsort(void **xve, int *order, int dim,int (*compar)(void *, void *))
 {
   void *tmp, *v;
   int i, j, l, r, tmp_i,k;

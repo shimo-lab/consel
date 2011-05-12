@@ -2,7 +2,7 @@
 
   makerep.c : make rep-file by the RELL method
 
-  Time-stamp: <2005-09-20 16:40:48 shimo>
+  Time-stamp: <2011-01-25 16:56:43 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -20,7 +20,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makerep.c,v 1.3 2002/08/30 13:49:18 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makerep.c,v 1.4 2005/09/20 07:58:08 shimo Exp shimo $";
 
 typedef struct {
   double *ve;
@@ -249,13 +249,13 @@ int main(int argc, char** argv)
   if(sw_nosort) {
     for(i=0;i<cm0;i++) orderv[i]=i;
   } else {
-    psort((void**)dvbuf,orderv,cm0,(int (*)(void *, void *))&compdvec);
+    mypsort((void**)dvbuf,orderv,cm0,(int (*)(void *, void *))&compdvec);
   }
-  dprintf(1,"\n# observed statistics for the associations");
-  dprintf(1,"\n# %4s %4s ","rank","item");
+  mydprintf(1,"\n# observed statistics for the associations");
+  mydprintf(1,"\n# %4s %4s ","rank","item");
   for(i=0;i<cm0;i++) {
-    dprintf(1,"\n# %4d %4d ",i+1,orderv[i]+1);
-    for(j=0;j<dvbuf[i]->len;j++) dprintf(1," %6.2f",dvbuf[i]->ve[j]);
+    mydprintf(1,"\n# %4d %4d ",i+1,orderv[i]+1);
+    for(j=0;j<dvbuf[i]->len;j++) mydprintf(1," %6.2f",dvbuf[i]->ve[j]);
   }
 
   /* copying and truncating the sorted associations */

@@ -2,8 +2,8 @@
 
   misc.h: header for misc.c
 
-  Time-stamp: <2008-09-12 17:02:34 shimo>
-  $Id: misc.h,v 1.10 2002/04/16 15:58:30 shimo Exp shimo $
+  Time-stamp: <2011-01-25 16:57:06 shimo>
+  $Id: misc.h,v 1.11 2008/09/12 08:17:07 shimo Exp shimo $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -16,7 +16,7 @@
 
 /* system */
 extern int debugmode;
-void dprintf(int n, char *fmt, ...);
+void mydprintf(int n, char *fmt, ...);
 void error(char *fmt, ...);
 void warning(char *fmt, ...);
 double get_time(void);
@@ -102,7 +102,7 @@ int fwrite_bmat(FILE *fp, double **A, int m, int n);
 /* misc */
 void sort(double *xve, int *order, int dim);
 void isort(int *xve, int *order, int dim);
-void psort(void **xve, int *order, int dim,
+void mypsort(void **xve, int *order, int dim,
 	   int (*compar)(void *, void *));
 int *perm_ivec(int *px, int *iv, int n);
 
