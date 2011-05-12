@@ -1,6 +1,6 @@
 /* randrep.c
 
-  Time-stamp: <2002-08-30 21:50:42 shimo>
+  Time-stamp: <2011-01-25 16:57:26 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -18,7 +18,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: randrep.c,v 1.4 2001/08/10 05:59:43 shimo Exp shimo $";
+static const char rcsid[] = "$Id: randrep.c,v 1.5 2002/08/30 13:49:36 shimo Exp shimo $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}
@@ -299,10 +299,10 @@ int do_repexp()
 	while((x=runif())==0.0);
 	xbuf[j]=sg-flucscale*log(x); /* exponentinal(flucscale)+sg */
       }
-      dprintf(1,"\n# $d %d: ",irep,i);
+      mydprintf(1,"\n# $d %d: ",irep,i);
       x=0.0; for(j=0;j<deg;j++) {
 	x+=xbuf[j];
-	dprintf(1,"%g ",xbuf[j]);
+	mydprintf(1,"%g ",xbuf[j]);
       }
       obsvec[i]=x/deg; /* average */
       if(sw_nonpara) {

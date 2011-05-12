@@ -1,7 +1,7 @@
 /*
   opt.c
 
-  Time-stamp: <2002-03-01 13:32:17 shimo>
+  Time-stamp: <2011-01-25 16:57:16 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -15,7 +15,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: opt.c,v 1.1 2002/02/28 07:56:59 shimo Exp shimo $";
+static const char rcsid[] = "$Id: opt.c,v 1.2 2002/03/01 09:38:10 shimo Exp shimo $";
 
 /*
   INVERSION OF MATRIX ON LU DECOMPOSITION
@@ -336,14 +336,14 @@ void dfnmin(double p[], int n, double gtol, int itmax, int maxback,
     for(k=0;k<maxback;k++) {
       for(i=0;i<n;i++) pnew[i]=p[i]+lam*xi[i];
       fnew=(*func)(pnew); /* function */      
-      dprintf(3,"\n### dfnmin: lam=%g fnew=%g fp=%g",lam,fnew,fp);
+      mydprintf(3,"\n### dfnmin: lam=%g fnew=%g fp=%g",lam,fnew,fp);
       if(fnew < fp) break;
       lam *= 0.1;
     }
     if(k==maxback) break;
     fp=fnew;
     for(i=0;i<n;i++) p[i]=pnew[i];
-    dprintf(3,"\n### dfnmin: loop=%d sum=%g fp=%g",loop,sum,fp);
+    mydprintf(3,"\n### dfnmin: loop=%d sum=%g fp=%g",loop,sum,fp);
     if(sum>=0 && sum<gtol) break;
   }
 

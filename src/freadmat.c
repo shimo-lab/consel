@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.8 2008/09/12 08:17:03 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.9 2010/01/29 16:48:04 shimo Exp shimo $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,7 +81,7 @@ double **fread_mat_puzzle(FILE *fp, int *mp, int *np)
 
   m=fread_i(fp); /* number of items (rows) */
   n=fread_i(fp); /* number of samples (columns) */
-  dprintf(2,"\nm=%d n=%d",m,n);
+  mydprintf(2,"\nm=%d n=%d",m,n);
   fskipline(fp);
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   if(*np>0 && *np != n) error("size of columns mismatch in mat");
@@ -93,10 +93,10 @@ double **fread_mat_puzzle(FILE *fp, int *mp, int *np)
   for(i=0;i<m;i++) {
     fskipjunk(fp);
     fskipword(fp);
-    dprintf(2,"\ni=%d",i+1);
+    mydprintf(2,"\ni=%d",i+1);
     for(j=0;j<n;j++) {
       A[i][j]=fread_d(fp);
-      dprintf(2,"\n%d %lg",j+1, A[i][j]);
+      mydprintf(2,"\n%d %lg",j+1, A[i][j]);
     }
   }
 
@@ -117,7 +117,7 @@ double **fread_mat_lfh(FILE *fp, int *mp, int *np)
   m=fread_i(fp); /* number of items (rows) */
   n=fread_i(fp); /* number of sites (columns for output) */
   p=fread_i(fp); /* number of patterns (columns for input) */
-  dprintf(2,"\nm=%d n=%d p=%d",m,n,p);
+  mydprintf(2,"\nm=%d n=%d p=%d",m,n,p);
   if(m<0) error("negative tree numbers");
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   if(*np>0 && *np != n) error("size of columns mismatch in mat");
@@ -130,15 +130,15 @@ double **fread_mat_lfh(FILE *fp, int *mp, int *np)
 
   for(i=0;i<m;i++) {
     t = fread_i(fp); /* tree id */
-    dprintf(2,"\ni=%d",t);
+    mydprintf(2,"\ni=%d",t);
     if( t != i + 1) error("wrong row index");
     for(jj=j=0;j<p;j++) {
       t = fread_i(fp); /* pattern id */
-      dprintf(2,"\n%d",t);
+      mydprintf(2,"\n%d",t);
       if( t != j + 1) error("wrong column index");
       t = fread_i(fp); /* number of repeats */
       x = fread_d(fp); /* site-wise log-likelihood */
-      dprintf(2," %d %lg",t,x);
+      mydprintf(2," %d %lg",t,x);
       fskipline(fp);
       for(k=0;k<t;k++) {
 	if(jj>=n) error("too many repeats");
@@ -259,7 +259,7 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
       // Drop gaps in the Paup data
       if (t > 0) {
 	V[n++] = -t; /* modified by shimo */
-	dprintf(2,"\n%d %lg",n,V[n-1]);
+	mydprintf(2,"\n%d %lg",n,V[n-1]);
       }	
       fskipline(fp);
     } else {
@@ -275,7 +275,7 @@ double **fread_mat_paup2(FILE *fp, int *mp, int *np)
   }
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   *mp = m;
-  dprintf(2,"\nm=%d",m);
+  mydprintf(2,"\nm=%d",m);
   free( V );
   return A;
 }
@@ -331,13 +331,13 @@ double **fread_mat_phyml(FILE *fp, int *mp, int *np)
   
   while(find_phymlhead(fp)) {
     n=0; m++;
-    dprintf(2,"\ntree=%d",m);
+    mydprintf(2,"\ntree=%d",m);
     while(!ferror(fp) && !feof(fp)) {
       t = fread_i_noerror(fp); /* tree id */
-      dprintf(2,"\ni=%d",t);
+      mydprintf(2,"\ni=%d",t);
       if(t==0) break;
       x = fread_d(fp); /* P(D|M) */
-      dprintf(2,"  p=%lg",x);
+      mydprintf(2,"  p=%lg",x);
       fskipline(fp);
       if( V == NULL || n >= len ) {
 	len *= 2;
@@ -354,7 +354,7 @@ double **fread_mat_phyml(FILE *fp, int *mp, int *np)
   }
   if(*mp>0 && *mp != m) error("size of rows mismatch in mat");
   *mp = m;
-  dprintf(2,"\nm=%d",m);
+  mydprintf(2,"\nm=%d",m);
   free( V );
   return A;
 }
