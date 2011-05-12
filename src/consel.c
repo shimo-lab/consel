@@ -3,7 +3,7 @@
   consel.c : assessing the confidence in selection
              using the multi-scale bootstrap
 
-  Time-stamp: <2004-11-11 17:10:35 shimo>
+  Time-stamp: <2011-05-12 16:01:09 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.18 2003/07/28 07:11:02 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.19 2004/11/11 08:14:09 shimo Exp shimo $";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,8 +109,8 @@ int *bb=NULL; /* kk-vector of no.'s of replicates */
 double *rr=NULL; /* kk-vector of relative sample sizes */
 
 /* for associations */
-int mm=0; /* no. of items */
-int cm0=0; /* no. of associations (read) */
+int mm=0; /* no. of items, i.e., no. of trees */
+int cm0=0; /* no. of associations, edges typically (read) */
 int **assvec0=NULL; /* association vectors (read) */
 int *asslen0=NULL; /* lengths of the associations (read) */
 int **cassvec0=NULL; /* complement of assvec0 */
@@ -137,6 +137,7 @@ int mf=1;
 /* for rmt file */
 double ***repmats=NULL; /* (kk,mm,bb[i])-array of replicates */
 double *datvec=NULL; /* mm-vector of data */
+double *datvec00=NULL; /* save original */
 
 /* for rep file */
 double ***statmats=NULL; /* (kk,cm,bb[i])-array of test statistics */
@@ -177,7 +178,8 @@ double *pv0vec, *se0vec; /* pvalue for the derived naive method */
 
 /* bayes posterior prob */
 double *bapvec=NULL;
-double bapcoef=1.0;
+double bapcoef=1.0; // factor used for logL
+double bapn=1.0; // sample size n used as log(n)=log(bapn)
 
 /* for msboot pv */
 double **betamat=NULL; /* (3,cm)-matrix of signed distance, curvature, dim */
@@ -227,6 +229,14 @@ int sw_fastrep=0; /* rescaling from r=1 */
 int sw_multi=0; /* multiple input files */
 int sw_cong=1; /* overall congruence */
 int find_i0(double *rr, int kk);
+
+/* AIC correction added on 2010/01/26 
+pdm = the number of parameters for evolution model
+*/
+char *fname_pdm = NULL; char *fext_pdm = ".vt";
+double *pdmvec=NULL; /* vector of pdm for each "tree" */
+int npdm=0;
+int aictype=2; /* 0=none, 1=ordinary, 2=new aic, 3=rell correction, 4=yet another aic */
 
 /* main routines */
 int do_rmtmode();
@@ -278,6 +288,10 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"-v")) {
       if(i+1>=argc) byebye();
       fname_vt=argv[i+1];
+      i+=1;
+    } else if(streq(argv[i],"--pdm")) {
+      if(i+1>=argc) byebye();
+      fname_pdm=argv[i+1];
       i+=1;
     } else if(streq(argv[i],"-p")) {
       if(i+1>=argc) byebye();
@@ -351,6 +365,16 @@ int main(int argc, char** argv)
     } else if(streq(argv[i],"--ppcoef")) {
       if(i+1>=argc ||
 	 sscanf(argv[i+1],"%lf",&bapcoef) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--ppn")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%lf",&bapn) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"--aictype")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&aictype) != 1)
 	byebye();
       i+=1;
     } else if(streq(argv[i],"--cieps")) {
@@ -487,13 +511,13 @@ int read_assoc()
   if(sw_nosort) {
     for(i=0;i<cm0;i++) orderv[i]=i;
   } else {
-    psort((void**)dvbuf,orderv,cm0,(int (*)(void *, void *))&compdvec);
+    mypsort((void**)dvbuf,orderv,cm0,(int (*)(void *, void *))&compdvec);
   }
-  dprintf(1,"\n# observed statistics for the associations");
-  dprintf(1,"\n# %4s %4s ","rank","item");
+  mydprintf(1,"\n# observed statistics for the associations");
+  mydprintf(1,"\n# %4s %4s ","rank","item");
   for(i=0;i<cm0;i++) {
-    dprintf(1,"\n# %4d %4d ",i+1,orderv[i]+1);
-    for(j=0;j<dvbuf[i]->len;j++) dprintf(1," %6.2f",dvbuf[i]->ve[j]);
+    mydprintf(1,"\n# %4d %4d ",i+1,orderv[i]+1);
+    for(j=0;j<dvbuf[i]->len;j++) mydprintf(1," %6.2f",dvbuf[i]->ve[j]);
   }
 
   /* copying and truncating the sorted associations */
@@ -557,6 +581,164 @@ int read_scale()
   return 0;
 }
 
+
+/* AIC correction 2011/01/26 
+
+   for the theory see my note on 2011/01/25
+
+   n = sample size for original data
+   m = sample size for bootstrap data (R = m/n)
+   pdm = number of model parameters
+   datvec contains
+       sum_{t=1}^n log p(x_t|\hat theta) 
+   repmats contains
+      (n/m) * sum_{t=1}^m log p(x*_t|\hat theta)
+
+   We want to compute
+   AIC(X) = AIC for the dataset
+   AIC(X*) = AIC for a bootstrap dataset
+   AIC'(X) and AIC'(X*) are those with a new correction term
+
+   Note:
+   Minimizing AIC value is equivalent to maximizing
+         sum_{t=1}^n log p(x_t|\hat theta) - pdm.
+   In the definitions of AIC below, an arbiterary constant factor 
+   such as (1/n) is  multiplied to this value, which may be different
+   from the standard definition of AIC such as
+     -2 * { sum_{t=1}^n log p(x_t|\hat theta) - pdm }.
+
+   --------------------------------------------------------
+   aictype==0: do no aic correciton (comparing log-likelihoods)
+   RECOMMENDED ONLY FOR TESTING TREES
+   
+   This method (aictype==0) is standard for testing trees.
+   For comparing models with different number of parameters,
+   AIC should be used instead of log-likleihdoods.
+
+   --------------------------------------------------------
+   aictype==1: a plug-in of multiscale bootstrap
+   NOT RECOMMENDED FOR ANY SITUATIONS
+   
+   AIC value for sample size n is
+     -2 * { sum_{t=1}^n log p(x_t|\hat theta) - pdm },
+   and AIC for sample size m is
+     -2 * { sum_{t=1}^m log p(x_t|\hat theta) - pdm }.
+
+   Except for the arbiterary constant factor, AIC value for
+   the original data and that for the bootstrap data are
+
+   AIC(X) = -(1/n) *{
+        sum_{t=1}^n log p(x_t|\hat theta) - 1.0*pdm  }
+
+   AIC(X*) = -(1/n)*{
+       (n/m)*sum_{t=1}^m log p(x*_t|\hat theta) - (n/m)*1.0*pdm }
+
+   --------------------------------------------------------
+   aictype==2: use a new aic correction
+   RECOMMENDED FOR GENERAL SITUATIONS (when number of parameters
+    are different for models).
+   
+   AIC'(X) = -(1/n) *{
+        sum_{t=1}^n log p(x_t|\hat theta) - 0.5*pdm  }
+
+   AIC'(X*) = -(1/n)*{
+       (n/m)*sum_{t=1}^m log p(x*_t|\hat theta) - 0.5*pdm }
+  
+   --------------------------------------------------------
+   Warnings: do not use aictype==3.
+   aictype==3: use a new aic correction with rell taken into account
+   NOT RECOMMNDED. IMPLEMENTED ONLY FOR EXPERIMENTAL PURPOSE
+   
+   AIC'(X) = -(1/n) *{
+        sum_{t=1}^n log p(x_t|\hat theta) - 0.5*pdm  }
+
+   AIC'(X*) = -(1/n)*{
+       (n/m)*sum_{t=1}^m log p(x*_t|\hat theta) - 0.5*pdm* (1 - (n/m)) }
+  
+   note: AIC'(X*) above approximates
+   AIC'(X*) = -(1/n)*{
+       (n/m)*sum_{t=1}^m log p(x*_t|\hat theta*) - 0.5*pdm }
+     
+   the difference is between \hat theta and \hat theta*
+
+   --------------------------------------------------------
+   aictype==4: similar to aictype==2, but using AIC instead of RISK
+   
+   AIC'(X) = -(1/n) *{
+        sum_{t=1}^n log p(x_t|\hat theta) - pdm  }
+
+   AIC'(X*) = -(1/n)*{
+       (n/m)*sum_{t=1}^m log p(x*_t|\hat theta) - pdm }
+  
+   --------------------------------------------------------
+*/
+int read_pdm()
+{
+  char *cbuf;
+  FILE *fp;
+  int i;
+
+  /* reading pdm, i.e., number of parameters for each item */
+  npdm=0;
+
+  if(fname_pdm) {
+      fp=openfp(fname_pdm,fext_pdm,"r",&cbuf);
+      printf("\n# reading %s",cbuf);
+      pdmvec=fread_vec(fp,&npdm);
+      fclose(fp); FREE(cbuf);
+
+      printf("\n# pdm:");
+      for(i=0;i<npdm;i++) printf("%g ",pdmvec[i]);
+
+      printf("\n# aictype:%d",aictype);
+  }
+
+  return 0;
+}
+
+int  do_pdm()
+{
+  int i,j,k;
+  double x;
+
+  if(npdm<=0) return 0;
+  if(npdm != mm) error("size of pdm should be M");
+
+  if(aictype==0) return 0;
+
+  // update datvec
+  for(i=0;i<mm;i++) {
+    if(aictype==1) {
+      x= -1.0*pdmvec[i];
+    } else if(aictype==2) {
+      x= -0.5*pdmvec[i];
+    } else if(aictype==3) {
+      x= -0.5*pdmvec[i];
+    } else if(aictype==4) {
+      x= -1.0*pdmvec[i];
+    }
+    datvec[i]+=x;
+  }
+
+  // update repmats
+  for(k=0;k<kk;k++) {
+    for(i=0;i<mm;i++) {
+      if(aictype==1) {
+	x= -1.0*pdmvec[i]/rr[k];
+      }	else if(aictype==2) {
+	x= -0.5*pdmvec[i];
+      }	else if(aictype==3) {
+	x= -0.5*pdmvec[i]*(1.0 - 1.0/rr[k]);
+      }	else if(aictype==4) {
+	x= -1.0*pdmvec[i];
+      }
+      for(j=0;j<bb[k];j++) repmats[k][i][j]+=x;
+    }
+  }
+
+  return 0;
+}
+
 /*
   input1: cm,mm,assvec,asslen, rr,bb,kk,repmats,
   input2: sw_fastrep,rr1,kk1
@@ -589,6 +771,7 @@ int genrep()
     }
     kk=kk1; rr=rr1; bb=bb1;
   } else { /* without rescaling approximation */
+    // this is default
     statmats=NEW_A(kk,double**);
     for(i=0;i<kk;i++) {
       statmats[i]=new_lmat(cm,bb[i]);
@@ -608,6 +791,11 @@ int genrep()
   (1) input rmt file
   (2) read association file and sort the items
   (3) call mctest and bootrep
+
+  THIS IS TYPICALLY USED FOR PHYLOGENETIC ANALYSIS
+
+  pdm is added on 2010/01/26
+
 */
 int do_rmtmode()
 {
@@ -638,23 +826,35 @@ int do_rmtmode()
       repmats[i]=read_lmat(&mm,&(bb[i])); putdot();
     }
   }
+  datvec00=new_vec(mm); for(i=0;i<mm;i++) datvec00[i]=datvec[i]; 
 
-  printf("\n# K:%d",kk);
-  printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]);
-  printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]);
-  printf("\n# M:%d",mm);
+  printf("\n# K:%d",kk); // number of scales
+  printf("\n# R:"); for(i=0;i<kk;i++) printf("%g ",rr[i]); // scales
+  printf("\n# B:"); for(i=0;i<kk;i++) printf("%d ",bb[i]); // no of reps
+  printf("\n# M:%d",mm); // number of trees
   buf1=new_vec(mm); buf3=new_vec(mm); 
 
   if(kk<1) return 0;
+  if(mm<2) {
+    warning("M should be at least two");
+    return 0;
+  }
+
+  /*  pdm correction for AIC 2011/01/26 */
+  read_pdm();
+  do_pdm();
 
   /* reading association vector */
   read_assoc();
   buf2=new_vec(cm0);
 
-  /* reading parameters */
-  read_alpha();
+  /* reading other parameters */
+    read_alpha();
   if(sw_fastrep) read_scale();
+
   
+  /////// COMPUTATION STARTS HERE /////////
+
   /* bayes */
   if(sw_doba) do_batest();
 
@@ -846,6 +1046,12 @@ int congcnt(double ***cntmatm, int **bbm, int mf)
   (1) input rmt file
   (2) read association file and sort the items
   (3) call mctest and bootrep
+
+  for multiple genes analysis
+  (untouched since 2002)
+
+  THIS IS YET EXPERIMENTAL
+
 */
 int do_rmtmultimode()
 {
@@ -1108,9 +1314,23 @@ int do_batest()
   double x,y;
 
   bapvec=new_vec(cm);
-  x=-HUGENUM; for(i=0;i<mm;i++) if(datvec[i]>x) x=datvec[i];
-  y=0.0; for(i=0;i<mm;i++) {y+=buf1[i]=exp(bapcoef*(datvec[i]-x));}
-  for(i=0;i<mm;i++) buf1[i]=buf1[i]/y;
+
+  if(npdm!=mm) {
+    // bapcoef = 1
+    // P = const*exp{bapcoef * logL } is computed
+    // the following code is for avoiding overflow
+    x=-HUGENUM; for(i=0;i<mm;i++) if(datvec[i]>x) x=datvec[i]; // find min
+    y=0.0; for(i=0;i<mm;i++) {y+=buf1[i]=exp(bapcoef*(datvec[i]-x));}
+    for(i=0;i<mm;i++) buf1[i]=buf1[i]/y; // normalization
+  } else {
+    // BIC correction 2011/01/26
+    // P = const*exp{bapcoef*logL - 0.5*pdm*log(n) }
+    printf("\n# ppn:%g",bapn);
+    for(i=0;i<mm;i++) buf1[i]=bapcoef*datvec00[i] - 0.5*pdmvec[i]*log(bapn);
+    x=-HUGENUM; for(i=0;i<mm;i++) if(buf1[i]>x) x=buf1[i];
+    y=0.0; for(i=0;i<mm;i++) {y+=buf1[i]=exp(buf1[i]-x);}
+    for(i=0;i<mm;i++) buf1[i]=buf1[i]/y; // normalization
+  }
 
   for(i=0;i<cm;i++) {
     x=0.0; for(j=0;j<asslen[i];j++) x+=buf1[assvec[i][j]];
@@ -1263,12 +1483,12 @@ int do_bootrep()
   printf(" fitting"); fflush(STDOUT);
   t0=get_time();
   for(i=0;i<cm;i++) {
-    dprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
+    mydprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
     for(k=0;k<kk;k++) statp[k]=statmats[k][i];
     j=vcalpval(statp,rr,bb,kk,threshold,thvec+i,
 	       pvvec+i,sevec+i,pv0vec+i,se0vec+i,
 	       rssvec+i,dfvec+i,&beta,NULL,kappa);
-    dprintf(1,"\n# ret=%d",j);
+    mydprintf(1,"\n# ret=%d",j);
     if(j) {
       pfvec[i]=0.0;
       warning("regression degenerated: df[%d]=%g",i+1,dfvec[i]);
@@ -1298,7 +1518,7 @@ int do_bootrep()
   for(j=0;j<cm;j++) {
     for(i=0;i<kk;i++) statp[i]=statmats[i][j];
     for(i=0;i<nalpha;i++) {
-      dprintf(1,"\n# invtpval item=%d alpha=%g ",j+1,alphavec[i]);
+      mydprintf(1,"\n# invtpval item=%d alpha=%g ",j+1,alphavec[i]);
       k=invtpval(statp,rr,bb,kk,alphavec[i], 
 		 &(cimat[j][i]),&(csmat[j][i]),&(eimat[j][i]),kappa);
       if(k) printf(" au item=%2d, alpha=%4.2f",
@@ -1344,12 +1564,12 @@ int do_bootcnt()
   printf(" fitting"); fflush(STDOUT);
   t0=get_time();
   for(i=0;i<cm;i++) {
-    dprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
+    mydprintf(1,"\n# rank=%d item=%d",i+1,orderv[i]+1);
     j=rcalpval(cntmat[i],rrmat[i],bbmat[i],kk,
 	       pvvec+i,sevec+i,pv0vec+i,se0vec+1,
 	       rssvec+i,dfvec+i,&beta,NULL,kappa);
     thvec[i]=threshold; /* unused in cntmode */
-    dprintf(1,"\n# ret=%d",j);
+    mydprintf(1,"\n# ret=%d",j);
     if(j) {
       pfvec[i]=0.0;
       warning("regression degenerated: df[%d]=%g",i+1,dfvec[i]);
@@ -1989,7 +2209,7 @@ int wlscalcpval(double *cnts, double *rr, double *bb, int kk,
     beta[0]=beta[1]=0.0; vmat=NULL;
     *pv0=*pv; *se0=*se;
     i=1; /* degenerate */
-    dprintf(1,"\n# error in wls");
+    mydprintf(1,"\n# error in wls");
   } else {
     lsfit(X,zval,wt,2,kk,beta,rss,&vmat);
     *pv=pnorm( -(beta[0]-kappa*beta[1]) );
@@ -2052,7 +2272,7 @@ int mlecoef(double *cnts, double *rr, double *bb, int kk,
 
   coef[0]=coef0[0]; /* signed distance */
   coef[1]=coef0[1]; /* curvature */
-  dprintf(3,"\n### mlecoef: deg=%d, coef0=(%g,%g)",m-2,coef[0],coef[1]);
+  mydprintf(3,"\n### mlecoef: deg=%d, coef0=(%g,%g)",m-2,coef[0],coef[1]);
 
   for(loop=0;loop<mleloopmax;loop++) {
     d1f=d2f=d11f=d12f=d22f=0.0;
@@ -2068,12 +2288,12 @@ int mlecoef(double *cnts, double *rr, double *bb, int kk,
       } else { g[i]=h[i]=0.0; }
       d1f+= -h[i]*s[i]; d2f+= -h[i]/s[i];
       d11f+= g[i]*r[i]; d12f+= g[i]; d22f+= g[i]/r[i];
-      dprintf(3,"\n### mlecoef: %d %g %g %g %g %g",i,z[i],p[i],d[i],g[i],h[i]);
+      mydprintf(3,"\n### mlecoef: %d %g %g %g %g %g",i,z[i],p[i],d[i],g[i],h[i]);
     }
 
     a=d11f*d22f-d12f*d12f;
     if(a==0.0) {
-      dprintf(1,"\n# singular matrix in mle");
+      mydprintf(1,"\n# singular matrix in mle");
       return 2;
     }
     v11=-d22f/a; v12=d12f/a; v22=-d11f/a;
@@ -2086,7 +2306,7 @@ int mlecoef(double *cnts, double *rr, double *bb, int kk,
     e=-d11f*update[0]*update[0]-2.0*d12f*update[0]*update[1]
       -d22f*update[1]*update[1];
 
-    dprintf(2,"\n## mlecoef: %d %g %g %g %g %g",
+    mydprintf(2,"\n## mlecoef: %d %g %g %g %g %g",
 	    loop,coef[0],coef[1],update[0],update[1],e);
     if(e<mleeps) break;
   }
@@ -2129,7 +2349,7 @@ int mlecalcpval(double *cnts, double *rr, double *bb, int kk,
   
   coef[0]=coef0[0], coef[1]=coef0[1];
   i=mlecoef(cnts,rr,bb,kk,coef,vmat,rss,df,rmin,rmax);
-  if(i) {dprintf(0,"\n# error in mle, use wls instead"); return 0;}
+  if(i) {mydprintf(0,"\n# error in mle, use wls instead"); return 0;}
 
   *pv=pnorm(-(coef[0]-kappa*coef[1]) );
   x=dnorm(coef[0]-kappa*coef[1]);
@@ -2235,7 +2455,7 @@ double chimodel(double *parm)
   double x;
   x=chilrt(chicc,chirr,chibb,chikk,PARM0,PARM1,PARM2);
   if(x==0.0) x=1e30;
-  dprintf(4,"\n#### P: %g %g = %g",parm[0],parm[1],x);
+  mydprintf(4,"\n#### P: %g %g = %g",parm[0],parm[1],x);
 
   return x;
 }
@@ -2260,7 +2480,7 @@ void chidmodel(double *parm, double *diff)
 {
   chiseth(parm);
   dfmpridr(parm,diff,chixh1,CHIFUNCP,chimodel);
-  dprintf(3,"\n### D: %g %g",diff[0],diff[1]);
+  mydprintf(3,"\n### D: %g %g",diff[0],diff[1]);
 }
 void chiddmodel(double *parm, double **diff)
 {
@@ -2317,7 +2537,7 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
   for(i=0;i<3;i++) parm[i]=parm0[i];  
 
   NEWTON;
-  dprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
+  mydprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
 	  0,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
 
   if(sw_chidimopt && (*df)>=1 && PAR2DIM(parm0[2])>chidimmin+0.1) {
@@ -2335,7 +2555,7 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
       NEWTON;
       ya[is]=y; for(i=0;i<3;i++) parma[is][i]=parm[i]; vmata[is]=vmat;
       if(y<ya[im]) im=is;
-      dprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
+      mydprintf(1,"\n# opt grid=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
 	      is,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
     }
     if(sw_chidimgs && im>0 && im<ik-1) {
@@ -2352,7 +2572,7 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
 	}
 	for(i=0;i<3;i++) parm[i]=parma[im2][i];	parm[2]=x;
 	NEWTON;
-	dprintf(1,"\n# opt gold=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
+	mydprintf(1,"\n# opt gold=%d loop=%d sid=%g cv=%g dim=%g lrt=%g",
 		is,loop,parm[0],parm[1],PAR2DIM(parm[2]),y);
 	if(y<ya[im2]){
 	  /* new point becomes the bracketted point */
@@ -2382,7 +2602,7 @@ int chicoef(double *cc, double *rr, double *bb, int kk,
 #undef GOLDLOOPMAX
     } 
     y=ya[im]; for(i=0;i<3;i++) parm[i]=parma[im][i]; vmat=vmata[im];
-    dprintf(1,"\n# opt im=%d sid=%g cv=%g dim=%g lrt=%g",
+    mydprintf(1,"\n# opt im=%d sid=%g cv=%g dim=%g lrt=%g",
 	    im,parm[0],parm[1],PAR2DIM(parm[2]),y);
     for(i=0;i<ik;i++) {
       if(vmata[i]!=vmat) free_mat(vmata[i]);
@@ -2420,7 +2640,7 @@ int chicalcpval(double *cnts, double *rr, double *bb, int kk,
 
   i=chicoef(cnts,rr,bb,kk,parm,&vmat,&rss0,&df0,rmin,rmax);
   if(vmatp) *vmatp=vmat;
-  if(i) {dprintf(0,"\n# error in chi, use wls instead"); return 0;}
+  if(i) {mydprintf(0,"\n# error in chi, use wls instead"); return 0;}
   *rss=rss0; *df=df0;
 
   *pv=chiobj(parm); chidobj(parm,diff);
@@ -2440,7 +2660,7 @@ int chicalcpval(double *cnts, double *rr, double *bb, int kk,
 
   /* for compatibility */
   beta[0]=parm[0]; beta[1]=parm[1]; beta[2]=PAR2DIM(parm[2]);
-  dprintf(1,"\n# pv=%g (%g) pv0=%g (%g) sid=%g cv=%g a=%g m=%g",
+  mydprintf(1,"\n# pv=%g (%g) pv0=%g (%g) sid=%g cv=%g a=%g m=%g",
 	  *pv,*se,*pv0,*se0,beta[0],beta[1],PARM1,beta[2]);
   if(betap) *betap=beta;
   if(!vmatp) free_mat(vmat);
@@ -2561,14 +2781,14 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
 	       &rss,&df,&beta,&vmat,rrmin,rrmax,kappa);
     if(!i) { z=-pv; ze=se; }
     idf=(int)df;
-    dprintf(2,
+    mydprintf(2,
 "\n## vcalpval: %3d %6.3f %6.3f %9.6f %9.6f %3.0f %6.3f %6.3f %6.3f %6.3f %g",
 	    j,th,x,pv,se,df,beta[0],beta[1],z,ze,rss);
 
     if(idf < dfmin && idf0 < dfmin) return 1; /* degenerated */
     if((idf < dfmin) || 
        (idf0 >= dfmin && (z-z0)*(x-*thp) > 0.0 && fabs(z-z0)>vceps2*ze0) ) {
-      dprintf(1,"\n# non-monotone");
+      mydprintf(1,"\n# non-monotone");
       th=x; xn=vcscale*x+(1.0-vcscale)*(*thp);
       continue;
     }
@@ -2583,7 +2803,7 @@ int vcalpval(double **statps, double *rr, int *bb, int kk,
     if(fabs(x-th)<1e-10) return 0;
   }
   
-  dprintf(1,"\n# no-convergence");
+  mydprintf(1,"\n# no-convergence");
   return 2;
 }
 
@@ -2620,7 +2840,7 @@ int invtpval(double **statps, double *rr, int *bb, int kk,
   x=pv=0.0; se=1.0;
   for(j=0;j<CILOOPMAX;j++) {
     x0=x; x=0.5*(x1+x2);
-    dprintf(2,"\n## invtpval: j=%d x=%g ",j,x);
+    mydprintf(2,"\n## invtpval: j=%d x=%g ",j,x);
     /* get cnts */
     for(i=0;i<kk;i++) {
       cntvec[i]=cntdist(statps[i],bb[i],x,3);
@@ -2633,11 +2853,11 @@ int invtpval(double **statps, double *rr, int *bb, int kk,
 	       &rss,&df,&beta,NULL,rrmin,rrmax,kappa);
     debugmode++;
     e=pv-alpha;
-    dprintf(2,"%g %g %g %g %g %g %g %g ",
+    mydprintf(2,"%g %g %g %g %g %g %g %g ",
 	    pv,se,rss,df,beta[0],beta[1],e,e/se);
     /* check */
     if((pv0-alpha) * (pv-pv0) > 0.0)
-      dprintf(1,"non-monotone in ci (%g %g)->(%g %g)",x0,pv0,x,pv);
+      mydprintf(1,"non-monotone in ci (%g %g)->(%g %g)",x0,pv0,x,pv);
     if(i) {
       warning("degenerecy in pval df=%g",df);
       *cival=x0; *seval=0.0; *eival=0.0;
