@@ -2,7 +2,7 @@
 
   catpv.c : cat pv-files
 
-  Time-stamp: <2002-09-03 13:25:35 shimo>
+  Time-stamp: <2011-01-25 16:47:31 shimo>
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.13 2002/09/03 01:57:48 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.14 2002/09/03 06:26:34 shimo Exp shimo $";
 
 char *fext_pv = ".pv";
 int sw_help=0;
@@ -113,7 +113,7 @@ int main(int argc, char** argv)
   double **pvmat2;
   int sw_bp,sw_ba,sw_mc,sw_au,fileid,outbit;
   double **outmat;
-  double x,y,z,*xp,*yp;
+  double x,y,z,*xp;
 
   fnamev=NEW_A(argc-1,char*);
   nfile=0;
