@@ -1,5 +1,5 @@
 /* rand.h 
-$Id: rand.h,v 1.6 2002/03/01 05:30:02 shimo Exp shimo $
+$Id: rand.h,v 1.7 2002/08/30 13:50:21 shimo Exp $
 */
 
 double genrand_real2(void); /* returns random # in [0,1) */

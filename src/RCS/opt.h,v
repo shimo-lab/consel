@@ -1,0 +1,76 @@
+head	1.2;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.2
+date	2002.03.01.09.38.22;	author shimo;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2002.02.28.07.55.49;	author shimo;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.2
+log
+@dfnmin takes itmax and maxback for arguments
+@
+text
+@/*
+  opt.h
+  Time-stamp: <2002-03-01 13:32:40 shimo>
+
+  $Id: opt.h,v 1.1 2002/02/28 07:55:49 shimo Exp shimo $
+*/
+
+
+
+void luinverse(double **omtrx, double **imtrx, int size); /* From Molphy */
+
+double sym_mat(double **mat, int m);
+
+double *lsfit(double **X, double *Y, double *W,
+	      int m, int n,
+	      double *beta, double *rss, double ***acmat);
+
+void dfsimple(double parm[], double diff[], double xh[],
+	      int n, double(*func)(double []));
+
+void dfmpridr(double parm[], double diff[], double xh[],
+	      int n, double(*func)(double []));
+
+void ddfsimple(double parm[], double **diff, double xh[],
+	       int n, double(*func)(double []));
+
+void dfnmin(double p[], int n, double gtol, int itmax, int maxback,
+	    int *iter, double *fret,
+	    double ***hesinv,
+	    double(*func)(double []), void (*dfunc)(double [], double []),
+	    void (*ddfunc)(double [], double **));
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d3 1
+a3 1
+  Time-stamp: <2002-02-28 16:47:56 shimo>
+d5 1
+a5 1
+  $Id$
+d27 2
+a28 1
+void dfnmin(double p[], int n, double gtol, int *iter, double *fret,
+@

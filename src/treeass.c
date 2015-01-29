@@ -18,7 +18,7 @@
 #include "misc.h"
 #include "tree.h"
 
-static const char rcsid[] = "$Id: treeass.c,v 1.6 2002/04/18 04:22:19 shimo Exp shimo $";
+static const char rcsid[] = "$Id: treeass.c,v 1.7 2002/07/26 03:20:14 shimo Exp $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}

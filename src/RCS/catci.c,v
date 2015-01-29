@@ -1,0 +1,231 @@
+head	1.3;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.3
+date	2001.08.10.06.11.44;	author shimo;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2001.05.29.06.37.24;	author shimo;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2001.05.05.09.09.09;	author shimo;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.3
+log
+@bp->np, nbp->bp
+@
+text
+@/*
+
+  catci.c : cat ci-files
+
+  Time-stamp: <2001-06-27 09:52:53 shimo>
+
+  shimo@@ism.ac.jp 
+  Hidetoshi Shimodaira
+
+  typical usage:
+  # display foo.ci
+  catci foo
+
+*/
+
+#include <stdio.h>
+#include <math.h>
+#include "misc.h"
+
+static const char rcsid[] = "$Id: catci.c,v 1.2 2001/05/29 06:37:24 shimo Exp shimo $";
+
+char *fext_ci = ".ci";
+
+void byebye() {error("error in command line");}
+void repchar(char c, int n) { int i; for(i=0;i<n;i++) putchar(c);}
+  
+int sw_verpose=0;
+int sw_au=1;
+int sw_bp=1;
+
+int main(int argc, char** argv)
+{
+  /* working variables */
+  int i,j,ifile,nfile,cm,w,w2;
+  FILE *fp;
+  char *cbuf;
+  double *alphavec=NULL;
+  double **cimat=NULL, **semat=NULL, **eimat=NULL;
+  double **ci0mat=NULL, **se0mat=NULL, **ei0mat=NULL;
+  int nalpha;
+  int *orderv; double *obsvec; /* auxiliary info */
+  char **fnamev;
+
+  fnamev=NEW_A(argc-1,char*);
+  nfile=0;
+
+  /* args */
+  for(i=1;i<argc;i++) {
+    if(argv[i][0] != '-') {
+      fnamev[nfile]=argv[i];
+      nfile++;
+    } else if(streq(argv[i],"-d")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&debugmode) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-v")) {
+      sw_verpose=1;
+    } else if(streq(argv[i],"--no_au")) {
+      sw_au=0;
+    } else if(streq(argv[i],"--no_np")) {
+      sw_bp=0;
+    } else byebye();
+  }
+
+  for(ifile=0;ifile<nfile;ifile++) {
+    fp=openfp(fnamev[ifile],fext_ci,"r",&cbuf);
+    printf("\n# reading %s",cbuf);
+    cm=nalpha=0;
+    orderv=fread_ivec(fp,&cm); obsvec=fread_vec(fp,&cm);
+    alphavec=fread_vec(fp,&nalpha);
+    cimat=fread_mat(fp,&cm,&nalpha); 
+    semat=fread_mat(fp,&cm,&nalpha);
+    eimat=fread_mat(fp,&cm,&nalpha);
+    ci0mat=fread_mat(fp,&cm,&nalpha); 
+    se0mat=fread_mat(fp,&cm,&nalpha);
+    ei0mat=fread_mat(fp,&cm,&nalpha);
+    fclose(fp);
+
+    printf("\n#"); repchar(' ',17);
+    w=nalpha*(sw_verpose?17:7);
+    w2=w/2-2;
+    if(sw_au) {
+      repchar('-',w2); printf(" au "); repchar('-',w-w2-4);
+    }
+    printf(" |");
+    if(sw_bp) {
+      repchar('-',w2); printf(" np "); repchar('-',w-w2-4);
+    }
+    printf("\n# %4s %4s","rank","item");
+    printf(" %6s","obs");
+    if(sw_au) {
+      for(j=0;j<nalpha;j++) {
+	printf(" %6.3f",alphavec[j]);
+	if(sw_verpose) printf(" %4s %4s","se","ei");
+      }
+    }
+    printf(" |");
+    if(sw_bp) {
+      for(j=0;j<nalpha;j++) {
+	printf(" %6.3f",alphavec[j]);
+	if(sw_verpose) printf(" %4s %4s","se","ei");
+      }
+    }
+    for(i=0;i<cm;i++) {
+      printf("\n# %4d %4d",i+1,orderv[i]+1);
+      printf(" %6.1f",obsvec[i]);
+      if(sw_au){
+	for(j=0;j<nalpha;j++) {
+	  printf(" %6.1f",cimat[i][j]);
+	  if(sw_verpose) printf(" %4.1f %4.1f",semat[i][j],eimat[i][j]);
+	}
+      }
+      printf(" |");
+      if(sw_bp){
+	for(j=0;j<nalpha;j++) {
+	  printf(" %6.1f",ci0mat[i][j]);
+	  if(sw_verpose) printf(" %4.1f %4.1f",se0mat[i][j],ei0mat[i][j]);
+	}
+      }
+    }
+    printf("\n");
+    free_vec(alphavec);
+    free_mat(cimat); free_mat(semat); free_mat(eimat);
+    free_mat(ci0mat); free_mat(se0mat); free_mat(ei0mat);
+    free_ivec(orderv); free_vec(obsvec);
+  }
+  return 0;
+}
+@
+
+
+1.2
+log
+@option no_au and no_bp
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-05-07 16:36:33 shimo>
+d11 2
+a12 2
+  # foo.pv -> foo.out
+  catpv foo
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catci.c,v 1.1 2001/05/05 09:09:09 shimo Exp shimo $";
+d36 1
+a36 1
+  char *fname;
+d61 1
+a61 1
+    } else if(streq(argv[i],"--no_bp")) {
+d67 2
+a68 4
+    fname=mstrcat(fnamev[ifile],fext_ci);
+    fp=fopen(fname,"r");
+    if(fp==NULL) error("cant open %s",fname);
+    else printf("\n# read %s",fname);
+d88 1
+a88 1
+      repchar('-',w2); printf(" bp "); repchar('-',w-w2-4);
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-05-05 15:24:02 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id$";
+d25 2
+a26 1
+
+d28 2
+d34 1
+a34 1
+  int i,j,ifile,nfile,cm;
+d39 1
+d59 4
+d77 3
+d82 10
+d94 12
+a105 3
+    for(j=0;j<nalpha;j++) {
+      printf(" %6.3f",alphavec[j]);
+      if(sw_verpose) printf(" %4s %4s","se","ei");
+d110 12
+a121 3
+      for(j=0;j<nalpha;j++) {
+	printf(" %6.1f",cimat[i][j]);
+	if(sw_verpose) printf(" %4.1f %4.1f",semat[i][j],eimat[i][j]);
+d127 1
+@

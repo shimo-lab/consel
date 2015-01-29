@@ -1,0 +1,303 @@
+2011-05-12  Hidetoshi Shimodaira  <shimo@kiki.is.titech.ac.jp>
+
+	* consel.c: fix dprintf and psort, also introduces new option aictype
+
+	* randrep.c, opt.c: fix dprintf
+
+	* misc.h, misc.c, makerep.c: fix dprintf and psort
+
+	* freadmat.c: fix dprintf
+
+	* catpv.c: minor fix
+
+2010-01-30  Hidetoshi Shimodaira  <shimo@kiki.is.titech.ac.jp>
+
+	* freadmat.h, freadmat.c, seqmt.c, makermt.c: accepts phyml
+
+2008-09-12  Hidetoshi Shimodaira  <shimo@localhost.localdomain>
+
+	* misc.h, misc.c: paup gaps.
+
+	* freadmat.c: paup gaps. win and mac line breaks.
+
+2007-03-24  Hidetoshi Shimodaira  <shimo@localhost.localdomain>
+
+	* makermt.c, seqmt.c, freadmat.c: accept -d 2 option for file checking
+
+2005-09-26  Hidetoshi Shimodaira  <shimo@localhost.localdomain>
+
+	* program.tex: TREE-PUZZLE format
+
+	* freadmat.h: puzzle extension is changed to sitelh
+
+2005-09-20  Hidetoshi Shimodaira  <shimo@localhost.localdomain>
+
+	* makerep.c, makermt.c, seqmt.c: accepts tree-puzzle format
+
+	* freadmat.h: definition of seqfile is moved to here
+
+	* freadmat.c: accepts tree-puzzle format
+
+2004-11-11  shimo@kuma  <shimo@kuma>
+
+	* consel.c:
+	free_lmat(repmats[i],cm) -> free_lmat(repmats[i],mm) in genrep()
+
+2003-07-28  shimo@kuma  <shimo@kuma>
+
+	* consel.c: a bug in vcalpval (seeing a==b for two doubles) is fixed
+
+2003-07-28  shimo@kuma  <shimo@kuma>
+
+	* consel.c: a bug in vcalpval (seeing a==b for two doubles) is fixed
+
+2002-09-03  Hidetoshi Shimodaira  <shimo@dai>
+
+	* catpv.c: outputs list of rank, ordr, and item
+
+	* catpv.c: sort switch accepts column number
+
+2002-08-30  Hidetoshi Shimodaira  <shimo@dai>
+
+	* rand.c: delete old rand generator and use mt generator
+
+	* makermt.c: -b option for multiplying bb
+
+2002-08-21  Hidetoshi Shimodaira  <shimo@dai>
+
+	* freadmat.c:
+	now fread_mat_paup2 accepts the latest (200207) paup format
+
+	* consel.c, catpv.c: minor change for pv file format
+
+2002-07-26  Hidetoshi Shimodaira  <shimo@dai>
+
+	* treeass.c: calculates histogram of splits
+
+2002-04-19  Hidetoshi Shimodaira  <shimo@dai>
+
+	* makermt.c: reduce memory usage
+
+	* consel.c: freeing repmats in genrep
+
+2002-04-18  Hidetoshi Shimodaira  <shimo@dai>
+
+	* treeass.c: count mode is now default
+
+	* catpv.c: testing congruence (-c) option
+
+2002-04-17  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* treeass.c: count mode (-c) is added
+
+	* tree.c: allow (and ignore) branch length
+
+2002-03-03  Hidetoshi Shimodaira  <shimo@dai>
+
+	* consel.c: fixes a minor bug
+
+	* misc.h, misc.c: get_date is added
+
+	* rand.c: smrand(0) uses time
+
+2002-03-01  Hidetoshi Shimodaira  <shimo@dai>
+
+	* consel.c, opt.h, opt.c: dfnmin takes itmax and maxback for arguments
+
+	* rand.h, rand.c: critchisqnc is added
+
+2002-02-28  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* consel.c: new model: chi fitting with esimation of dimensions
+
+	* catpv.c: handles chi fitting with new fields: dim and a
+
+	* opt.c, opt.h: New file.
+
+	* misc.h, misc.c: luinverse and lsfit are moved to opt.c
+
+	* rand.c:
+	pchisqnc2 and tchisqnc2 are added for internal use (for large nc)
+
+	* rand.h:
+	changed names of pgamma to pgammadist, and tgamma to tgammadist for
+	avoiding name confliction.
+
+2002-02-20  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* makermt.c: generate multiple rmt files
+
+	* misc.h: fread_s and fread_svec
+
+	* misc.c: string read
+
+	* rand.h, rand.c: gamma distribution
+
+	* consel.c: testing congruence
+
+2002-01-24  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* catpv.c: minor change
+
+	* program.tex: pp is described.
+
+	* consel.c: use mle as default
+
+2002-01-10  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* consel.c: --bap option for coefficient of BA
+
+	* catpv.c: BA is printed
+
+	* consel.c:
+	Bayesian posterior probability is calculated by the BIC approximation
+
+	* makermt.c:
+	-f option to change the default value: r1=1, B1=10000, K=1.
+
+	* program.tex: -f options for makermt and consel
+
+	* consel.c: rescaling approximation (-f) is implemented
+
+2001-12-10  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* program.tex: new paup format (0.1c)
+
+	* freadmat.c: multiply -1 for paup2 format
+
+	* catpv.c: -s option for sort by item
+
+	* freadmat.c:
+	Mine updated fread_mat_paup to read the new file format of PAUP.
+
+2001-08-10  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* program.tex: New file.
+
+	* consel.c: MLE mode for estimating signed distance and curvature
+
+	* catci.c: bp->np, nbp->bp
+
+	* catpv.c:
+	bp->np, nbp->bp. p-values are now divided into three groups (au,bp,sh) instead of two (au,sh).
+
+	* makerep.c: lfh->lnf
+
+	* catmt.c: using openfp
+
+	* treeass.c: extention handling
+
+	* seqmt.c: lfh->lnf
+
+	* catrep.c: lmat
+
+	* makermt.c: lmat, lfh->lnf
+
+	* randrep.c: rep_chi, rep_exp, rmt_norm
+
+	* rand.h, rand.c: pnorm
+
+	* misc.h, misc.c: lmat
+
+2001-06-22  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* makerep.c, catass.c: New file.
+
+2001-06-08  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* misc.c: free_mat when mat=NULL
+
+	* consel.c: binary mode for dos, and skip_au when kk=1.
+
+	* randrep.c, catrep.c, makermt.c: binary mode for dos
+
+2001-05-31  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* consel.c: --vceps2 option
+
+	* catpv.c: no_mc -> no_sh
+
+2001-05-29  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* catci.c: option no_au and no_bp
+
+	* catpv.c, catmt.c: *** empty log message ***
+
+	* consel.c: allow the weight kappa for the AU test
+
+	* catrep.c, randrep.c: *** empty log message ***
+
+	* treeass.c: allow outgroup
+
+	* tree.c, misc.h: *** empty log message ***
+
+	* misc.c: modified handling of extensions
+
+	* makermt.c:
+	accept the site-wise log-likelihoods of molphy, paml, and paup.
+
+	* seqmt.c, freadmat.c, freadmat.h: New file.
+
+2001-05-17  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* catmt.c: New file.
+
+	* catrep.c: ascii output
+
+	* treeass.c: read selection file to pick up trees
+
+	* catpv.c: aggregation of p-value files
+
+	* randrep.c: New file.
+
+	* makermt.c: changed to use openfp in misc.c
+
+	* consel.c: calculates wkh
+
+2001-05-05  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* makermt.c: changed default value of bb[i] from 1000 to 10000
+
+	* catrep.c: handles new rep format, and also rmt format
+
+	* catrep.c: New file.
+
+	* makermt.c: replicates are now properly rescaled in accordance with rr
+
+	* catci.c: New file.
+
+	* catpv.c: rewritten to be compatible with consel
+
+	* consel.c, treeass.c, tree.h, tree.c: New file.
+
+	* misc.c, misc.h:
+	Added openfp, write_{i,d}, psort, arg{min,max}_vec. A Bug in sort routines (sort, isort) are corrected, and the they are almost written.
+
+2001-04-16  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* rand.h, rand.c: dnorm
+
+	* makermt.c: print elapsed time
+
+	* misc.h: lsfit
+
+	* misc.c: lsfit is added
+
+	* catpv.c: New file.
+
+2001-04-12  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* makermt.c: New file.
+
+	* misc.c: new_buf etc are changed as macro (and renamed as new_vec).
+
+	* misc.h: memory allocations for vectors are now defined as macros
+
+2001-04-10  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* misc.h, misc.c: New file.
+
+1998-11-30  Hidetoshi Shimodaira  <shimo@sune.ism.ac.jp>
+
+	* rand.h, rand.c: New file.
+

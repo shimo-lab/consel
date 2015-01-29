@@ -24,7 +24,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makermt.c,v 1.15 2007/03/24 00:57:22 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makermt.c,v 1.16 2010/01/29 16:45:36 shimo Exp $";
 
 
 /*

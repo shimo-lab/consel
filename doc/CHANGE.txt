@@ -1,0 +1,97 @@
+CONSEL: a program for assessing the confidence of phylogenetic tree selection
+=============================================================================
+
+CHANGE LOG
+Time-stamp: "2011-05-12 16:29:28 shimo"
+
+* 2001-06-11
+version 0.1a release
+
+* 2001-06-27 
+consel.c: The signed distance and the curvature can be estimate by MLE
+(-m option). The default extention of PAML has been changed from lfh
+to lnf.
+catpv.c: Labels of p-values are changed (bp->np, nbp->bp).
+
+* 2001-08-10
+version 0.1b release
+
+* 2001-12-10
+freadmat.c: accepts new paup format.
+catpv.c: -s option for sort by item.
+
+* 2001-12-10
+version 0.1c release
+
+* 2002-01-10
+makermt.c: The only-SH mode (-f) is added.
+consel.c: The rescaling approximation (-f) is implemented. 
+consel.c: now calculates Bayesian posterior probabilities.
+catpv.c: The file format is changed.
+
+* 2002-01-24
+version 0.1d release
+
+* 2002-02-20
+makermt.c, consel.c: now handles multiple rmt files.
+
+* 2002-02-28
+consel.c: new model is added --- chi fitting for dimension estimation.
+
+* 2002-07-26
+treeass.c: calculates histogram of splits and trees
+
+* 2002-08-21
+freadmat.c: accepts the latest paup format
+
+* 2002-08-21
+version 0.1e release
+
+* 2002-08-30
+rand.c: uses mt19937 random number generator
+
+* 2002-09-03
+catpv.c: sorting option is changed
+
+* 2002-09-03
+version 0.1f release
+
+* 2003-07-28
+consel.c: vcalpval is fixed to avoid unnecessary warnings
+
+* 2004-07-13
+version 0.1g release
+
+* 2004-11-11
+consel.c: genrep is fixed. (consel was segfaulted when mm<cm)
+
+* 2004-11-11
+version 0.1h release
+
+* 2005-09-20
+freadmat.c: accepts tree-puzzle format
+
+* 2005-09-26
+version 0.1i release
+
+* 2007-03-24
+freadmat.c seqmt.c makermt.c: accept -d 2 option for file checking.
+
+* 2008-09-12
+freadmat.c misc.c: handling of gap in paup. mac and win file. 
+
+* 2008-09-12
+version 0.1j release (only source code)
+
+* 2010-01-29
+freadmat.c seqmt.c makermt.c: accepts phyml format
+
+* 2010-01-30
+version 0.1k release (only source code)
+
+* 2011-05-12
+dprintf and psort are renamed to avoid comilation errors
+new option aictype for aic correction
+
+* 2011-05-12
+version 0.2 release (only source code)

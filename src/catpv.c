@@ -17,7 +17,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catpv.c,v 1.14 2002/09/03 06:26:34 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catpv.c,v 1.15 2011/05/12 07:19:26 shimo Exp $";
 
 char *fext_pv = ".pv";
 int sw_help=0;

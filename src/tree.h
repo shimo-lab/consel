@@ -3,7 +3,7 @@
   tree.h: header for tree.c
 
   Time-stamp: <2001-04-29 18:52:12 shimo>
-  $Id$
+  $Id: tree.h,v 1.1 2001/05/05 09:06:43 shimo Exp $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira

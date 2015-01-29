@@ -11,7 +11,7 @@
   rnorm() : standard normal N(0,1)
   rchisq(df) : chi-square of df degrees of freedom
 
- $Id: rand.c,v 1.7 2002/03/03 14:56:32 shimo Exp shimo $
+ $Id: rand.c,v 1.8 2002/08/30 13:50:03 shimo Exp $
 
  */
 

@@ -1,0 +1,374 @@
+head	1.12;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.12
+date	2011.05.12.07.21.28;	author shimo;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2008.09.12.08.17.07;	author shimo;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2002.04.16.15.58.30;	author shimo;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2002.03.03.14.57.27;	author shimo;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2002.02.28.07.45.54;	author shimo;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2002.02.20.08.54.40;	author shimo;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2001.08.10.05.57.20;	author shimo;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2001.05.29.06.30.02;	author shimo;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2001.05.05.09.05.22;	author shimo;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2001.04.16.07.00.45;	author shimo;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2001.04.11.23.26.35;	author shimo;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2001.04.10.05.15.20;	author shimo;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.12
+log
+@fix dprintf and psort
+@
+text
+@/*
+
+  misc.h: header for misc.c
+
+  Time-stamp: <2011-01-25 16:57:06 shimo>
+  $Id: misc.h,v 1.11 2008/09/12 08:17:07 shimo Exp shimo $
+
+  shimo@@ism.ac.jp 
+  Hidetoshi Shimodaira
+
+*/
+
+#define STDERR stdout
+#define STDIN stdin
+#define STDOUT stdout
+
+/* system */
+extern int debugmode;
+void mydprintf(int n, char *fmt, ...);
+void error(char *fmt, ...);
+void warning(char *fmt, ...);
+double get_time(void);
+long get_date(void);
+
+/* memory */
+void myfree(void *ptr);
+void *myalloc(size_t size);
+void *myrealloc(void *old, size_t size);
+#define FREE myfree
+#define MALLOC myalloc
+#define REALLOC myrealloc
+#define NEW_A(m,t) (t*)MALLOC((m)*sizeof(t))
+#define NEW(t) NEW_A(1,t)
+#define RENEW_A(A,m,t) (t*)REALLOC(A,(m)*sizeof(t))
+#define FREE_A(A,t) FREE(A);
+#define new_vec(m) NEW_A(m,double)
+#define new_ivec(m) NEW_A(m,int)
+#define renew_vec(A,m) RENEW_A(A,m,double)
+#define renew_ivec(A,m) RENEW_A(A,m,int)
+#define free_vec(A) FREE_A(A,double)
+#define free_ivec(A) FREE_A(A,int)
+
+double **renew_mat(double **old, int m, int n);
+double **new_mat(int m, int n);
+void free_mat(double **buf);
+double **new_lmat(int m, int n);
+void free_lmat(double **buf, int m);
+
+/* ascii read/write */
+int fskipjunk(FILE *fp);
+#define skipjunk() fskipjunk(STDIN)
+int streq(char const *s1,char const *s2);
+int chkext(char *name, char *ext);
+int chkaxt(char *name);
+char *rmvaxt(char *name);
+char *mstrcat(char *str1, char *str2);
+FILE *openfp(char *name, char *ext, char *mode, char **fnamep);
+int fread_i(FILE *fp);
+#define read_i() fread_i(STDIN)
+double fread_d(FILE *fp);
+#define read_d() fread_d(STDIN)
+double fread_d_paup2(FILE *fp);
+char *fread_s(FILE *fp);
+#define read_s() fread_s(STDIN)
+double *fread_vec(FILE *fp, int *mp);
+#define read_vec(mp) fread_vec(STDIN,mp)
+int *fread_ivec(FILE *fp, int *mp);
+#define read_ivec(mp) fread_ivec(STDIN,mp)
+char **fread_svec(FILE *fp, int *mp);
+#define read_svec(mp) fread_svec(STDIN,mp)
+double **fread_mat(FILE *fp, int *mp, int *np);
+double **fread_lmat(FILE *fp, int *mp, int *np);
+#define read_mat(mp,np) fread_mat(STDIN,mp,np)
+#define read_lmat(mp,np) fread_lmat(STDIN,mp,np)
+double **freread_mat(FILE *fp, int *mp, int *np, double **buf);
+#define reread_mat(mp,np,buf) freread_mat(STDIN,mp,np,buf)
+int fwrite_i(FILE *fp, int x);
+#define write_i(x) fwrite_i(STDOUT,x)
+int fwrite_d(FILE *fp, double x);
+#define write_d(x) fwrite_d(STDOUT,x)
+int fwrite_vec(FILE *fp, double *A, int m);
+#define write_vec(A, m) fwrite_vec(STDOUT,A,m)
+int fwrite_ivec(FILE *fp, int *A, int m);
+#define write_ivec(A,m) fwrite_ivec(STDOUT,A,m)
+int fwrite_mat(FILE *fp, double **A, int m, int n);
+#define write_mat(A,m,n) fwrite_mat(STDOUT,A,m,n)
+
+/* binary read/write */
+int fread_bi(FILE *fp);
+double fread_bd(FILE *fp);
+int *fread_bivec(FILE *fp, int *mp);
+double *fread_bvec(FILE *fp, int *mp);
+double **fread_bmat(FILE *fp, int *mp, int *np);
+double **fread_blmat(FILE *fp, int *mp, int *np);
+double **freread_bmat(FILE *fp, int *mp, int *np, double **old);
+int fwrite_bi(FILE *fp, int x);
+int fwrite_bd(FILE *fp, double x);
+int fwrite_bivec(FILE *fp, int *A, int m);
+int fwrite_bvec(FILE *fp, double *A, int m);
+int fwrite_bmat(FILE *fp, double **A, int m, int n);
+
+/* misc */
+void sort(double *xve, int *order, int dim);
+void isort(int *xve, int *order, int dim);
+void mypsort(void **xve, int *order, int dim,
+	   int (*compar)(void *, void *));
+int *perm_ivec(int *px, int *iv, int n);
+
+int sort_vec(double *v, int n);
+int argmin_vec(double *vec, int n);
+int argmax_vec(double *vec, int n);
+double fsquare(double x);
+@
+
+
+1.11
+log
+@paup gaps.
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2008-09-12 17:02:34 shimo>
+  $Id: misc.h,v 1.10 2002/04/16 15:58:30 shimo Exp shimo $
+d19 1
+a19 1
+void dprintf(int n, char *fmt, ...);
+d105 1
+a105 1
+void psort(void **xve, int *order, int dim,
+@
+
+
+1.10
+log
+@# minor correction reread_mat
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2002-04-17 00:57:38 shimo>
+  $Id: misc.h,v 1.9 2002/03/03 14:57:27 shimo Exp shimo $
+d62 1
+@
+
+
+1.9
+log
+@get_date is added
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2002-03-03 23:06:03 shimo>
+  $Id: misc.h,v 1.8 2002/02/28 07:45:54 shimo Exp shimo $
+d75 1
+a75 1
+#define reread_mat(mp,np,buf) fread_mat(STDIN,mp,np,buf)
+@
+
+
+1.8
+log
+@luinverse and lsfit are moved to opt.c
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2002-02-27 13:02:45 shimo>
+  $Id: misc.h,v 1.7 2002/02/20 08:54:40 shimo Exp shimo $
+d23 1
+@
+
+
+1.7
+log
+@fread_s and fread_svec
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2002-02-10 18:23:31 shimo>
+  $Id: misc.h,v 1.6 2001/08/10 05:57:20 shimo Exp shimo $
+a100 1
+void luinverse(double **omtrx, double **imtrx, int size); /* From Molphy */
+a106 4
+double sym_mat(double **mat, int m);
+double *lsfit(double **X, double *Y, double *W,
+	      int m, int n,
+	      double *beta, double *rss, double ***acmat);
+@
+
+
+1.6
+log
+@lmat
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2001-06-23 13:13:02 shimo>
+  $Id: misc.h,v 1.5 2001/05/29 06:30:02 shimo Exp shimo $
+d61 2
+d67 2
+d115 1
+a115 1
+
+@
+
+
+1.5
+log
+@*** empty log message ***
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2001-05-29 12:11:23 shimo>
+  $Id: misc.h,v 1.4 2001/05/05 09:05:22 shimo Exp shimo $
+d45 2
+d66 1
+d68 1
+d88 1
+@
+
+
+1.4
+log
+@Added openfp, write_{i,d}, psort, arg{min,max}_vec. A Bug in sort routines (sort, isort) are corrected, and the they are almost written.
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2001-05-03 16:20:03 shimo>
+  $Id: misc.h,v 1.3 2001/04/16 07:00:45 shimo Exp shimo $
+d50 3
+d80 1
+a80 1
+int fread_bd(FILE *fp);
+@
+
+
+1.3
+log
+@lsfit
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2001-04-16 13:21:43 shimo>
+  $Id: misc.h,v 1.2 2001/04/11 23:26:35 shimo Exp shimo $
+d31 3
+a33 2
+#define NEW_A(m,t) (t*)MALLOC(m*sizeof(t))
+#define RENEW_A(A,m,t) (t*)REALLOC(A,m*sizeof(t))
+a41 1
+/* matrix */
+d51 1
+d64 4
+d91 3
+d100 4
+@
+
+
+1.2
+log
+@memory allocations for vectors are now defined as macros
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2001-04-12 08:25:22 shimo>
+  $Id: misc.h,v 1.1 2001/04/10 05:15:20 shimo Exp shimo $
+a83 1
+double sym_mat(double **mat, int m);
+d87 5
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 2
+a6 2
+  Time-stamp: <2001-04-10 14:11:06 shimo>
+  $Id$
+d31 11
+a41 3
+double *new_buf(int m);
+double *renew_buf(double *A, int m);
+void free_buf(double *buf);
+d50 1
+d73 1
+d79 1
+@

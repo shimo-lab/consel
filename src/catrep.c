@@ -20,7 +20,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: catrep.c,v 1.5 2001/06/08 01:22:20 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catrep.c,v 1.6 2001/08/10 06:03:10 shimo Exp $";
 
 typedef struct {
   int kk; /* number of scales */

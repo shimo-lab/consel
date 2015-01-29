@@ -1,0 +1,58 @@
+CONSEL: a program for assessing the confidence of phylogenetic tree selection
+=============================================================================
+
+CONSEL DOS-binary
+Time-stamp: "2001-06-11 11:10:23 shimo"
+
+
+ INSTALL
+=========
+
+Simply execute the self-extracting archive "cnslb01.exe", and follow
+the instructions. You will be asked the program directory (default:
+c:\Program Files\consel) and the work directory (default:
+"desktop"\consel).  The installer will prepare the desktop shortcuts
+and the start menu (start->program->consel) too.  You can uninstall
+CONSEL programs by clicking the "uninstall" shortcut in the start
+menu. The user's guide "program.pdf" is found in the start menu.
+
+
+ STARTING CONSEL CONSOLE
+=========================
+
+Clock the "CONSEL" shortcut on the desktop. It will start up the
+command console, setting the appropriate PATH, and change directory to
+the work directory. You can type any commands of CONSEL, such as
+makermt, consel, or catpv, from the console.
+
+
+ EXAMPLE
+=========
+
+Some example files are at "example" directory. Type the following
+commands from the console.
+
+cd example
+sample1.bat
+
+It runs makermt for generating the bootstrap replicates from the
+sample file of 15 mammal trees. It will take a few minutes to
+finish. The p-values are calculated by consel, and shown by catpv.
+
+Following sample1.bat, you can try another example by typing:
+
+sample2.bat
+
+This calculates the p-values for the edges to test the monophyly. It
+takes only a few seconds, since the bootstrap replicates are already
+generated in sample1.bat.
+
+You can compare the outputs of these examples with those found in
+"result" sub-directory. They should be identical to the outputs of the
+samples when CONSEL is working fine.
+
+
+Hidetoshi Shimodaira
+The Institute of Statistical Mathematics, Tokyo
+http://www.ism.ac.jp/~shimo/
+shimo@ism.ac.jp

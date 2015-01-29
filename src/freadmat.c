@@ -1,6 +1,6 @@
 /* freadmat.c May 29 2001 H.Mine */
 /* modified by shimo May 29 */
-/* $Id: freadmat.c,v 1.9 2010/01/29 16:48:04 shimo Exp shimo $ */
+/* $Id: freadmat.c,v 1.10 2011/05/12 07:20:04 shimo Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>

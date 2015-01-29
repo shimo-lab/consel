@@ -18,7 +18,7 @@
 #include "rand.h"
 #include "misc.h"
 
-static const char rcsid[] = "$Id: randrep.c,v 1.5 2002/08/30 13:49:36 shimo Exp shimo $";
+static const char rcsid[] = "$Id: randrep.c,v 1.6 2011/05/12 07:22:30 shimo Exp $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}

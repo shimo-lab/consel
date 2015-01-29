@@ -15,7 +15,7 @@
 #include <math.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: opt.c,v 1.2 2002/03/01 09:38:10 shimo Exp shimo $";
+static const char rcsid[] = "$Id: opt.c,v 1.3 2011/05/12 07:21:41 shimo Exp $";
 
 /*
   INVERSION OF MATRIX ON LU DECOMPOSITION

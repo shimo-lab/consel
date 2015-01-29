@@ -1,6 +1,6 @@
 /*  seqmt.c : sequence to mt file converter  */
 
-static const char rcsid[] = "$Id: seqmt.c,v 1.5 2007/03/24 00:57:18 shimo Exp shimo $";
+static const char rcsid[] = "$Id: seqmt.c,v 1.6 2010/01/29 16:46:04 shimo Exp $";
 
 #include <stdio.h>
 #include <stdlib.h>

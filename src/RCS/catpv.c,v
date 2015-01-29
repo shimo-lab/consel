@@ -1,0 +1,1103 @@
+head	1.15;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.15
+date	2011.05.12.07.19.26;	author shimo;	state Exp;
+branches;
+next	1.14;
+
+1.14
+date	2002.09.03.06.26.34;	author shimo;	state Exp;
+branches;
+next	1.13;
+
+1.13
+date	2002.09.03.01.57.48;	author shimo;	state Exp;
+branches;
+next	1.12;
+
+1.12
+date	2002.08.20.15.19.16;	author shimo;	state Exp;
+branches;
+next	1.11;
+
+1.11
+date	2002.04.18.04.21.35;	author shimo;	state Exp;
+branches;
+next	1.10;
+
+1.10
+date	2002.02.28.07.58.10;	author shimo;	state Exp;
+branches;
+next	1.9;
+
+1.9
+date	2002.01.24.03.04.42;	author shimo;	state Exp;
+branches;
+next	1.8;
+
+1.8
+date	2002.01.10.12.48.00;	author shimo;	state Exp;
+branches;
+next	1.7;
+
+1.7
+date	2001.12.10.05.52.47;	author shimo;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2001.08.10.06.10.53;	author shimo;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2001.05.31.02.47.52;	author shimo;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2001.05.29.06.35.57;	author shimo;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2001.05.16.22.15.48;	author shimo;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2001.05.05.09.08.59;	author shimo;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2001.04.16.06.59.57;	author shimo;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.15
+log
+@minor fix
+@
+text
+@/*
+
+  catpv.c : cat pv-files
+
+  Time-stamp: <2011-01-25 16:47:31 shimo>
+
+  shimo@@ism.ac.jp 
+  Hidetoshi Shimodaira
+
+  typical usage:
+  # foo.pv -> foo.out
+  catpv foo
+
+*/
+
+#include <stdio.h>
+#include <math.h>
+#include "misc.h"
+
+static const char rcsid[] = "$Id: catpv.c,v 1.14 2002/09/03 06:26:34 shimo Exp shimo $";
+
+char *fext_pv = ".pv";
+int sw_help=0;
+int sw_verpose=0;
+int sw_pba=1;
+int sw_pau=1;
+int sw_pbp=1;
+int sw_pmc=1;
+int sw_cat=0;
+int sw_prt=1;
+int sw_sort=0;
+int sw_cong=0;
+int labeladd=1;
+int sw_prank=0;
+int sw_printse=0;
+
+void putdot() {putchar('.'); fflush(STDOUT);}
+void byebye() {error("error in command line");}
+
+void print_real(double x)
+{
+  if(x<100.0 && x>-10.0 && fabs(x)>0.0005) printf(" %6.3f",x);
+  else if(x==0.0) printf(" %6s","0");
+  else if(fabs(x)<0.0005 || x>999999 || x<-99999) printf(" %6.0e",x);
+  else  printf(" %6.0f",x);
+}
+
+void print_pvname(char *name)
+{
+  printf(" %6s",name);
+  if(sw_printse)   printf(" %7s","(se)");
+}
+
+char indicate_sort(int col)
+{
+  if(col==sw_sort) return '+';
+  else if(col==-sw_sort) return '-';
+  else return ' ';
+}
+
+void print_pvcol(int col)
+{
+  printf(" %5d%c",col,indicate_sort(col));
+  if(sw_printse)   printf(" %7s","");
+}
+
+
+void print_pval(double pv, double se)
+{
+  print_real(pv);
+  if(sw_printse)   printf(" (%5.3f)",se);
+}
+
+
+char *fname_cat=NULL; char *fext_cat=".out";
+char *fname_cong=NULL; char *fext_cong=".pv";
+
+double ***pvmats, ***semats, ***auxmats;
+double **obsvecs;
+int **revords;
+
+int trc=0; /* number of items for aggregate */
+int trc1=0; /* start for aggregate */
+int trc2=0; /* end for aggregate */
+
+
+/* define bit sw */
+#define BPPVSW 1
+#define BAPVSW 2
+#define MCPVSW 4
+#define AUPVSW 8
+
+/* number of entries */
+#define BPPVNUM 1
+#define BAPVNUM 1
+#define MCPVNUM 4
+#define AUPVNUM 2
+
+/* number of aux entries */
+#define BPAUXNUM 0
+#define BAAUXNUM 0
+#define MCAUXNUM 0
+#define AUAUXNUM 7
+
+int main(int argc, char** argv)
+{
+  /* working variables */
+  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,jba,cm0=0,cm1=0;
+  FILE *fp;
+  char **fnamev,*cbuf;
+  int *orderv; double *obsvec; int *revordv=NULL;
+  double **pvmat,**semat,**auxmat;
+  double **pvmat2;
+  int sw_bp,sw_ba,sw_mc,sw_au,fileid,outbit;
+  double **outmat;
+  double x,y,z,*xp;
+
+  fnamev=NEW_A(argc-1,char*);
+  nfile=0;
+  /* args */
+  for(i=1;i<argc;i++) {
+    if(argv[i][0] != '-') {
+      fnamev[nfile]=argv[i];
+      nfile++;
+    } else if(streq(argv[i],"-d")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&debugmode) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-l")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&labeladd) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-t")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&trc) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-i")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&trc1) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-o")) {
+      sw_cat=1;
+      if(i+1<argc) {fname_cat=argv[i+1]; i++;}
+    } else if(streq(argv[i],"-c")) {
+      sw_cong=1;
+      if(i+1<argc) {fname_cong=argv[i+1]; i++;}
+    } else if(streq(argv[i],"-s")) {
+      if(i+1>=argc ||
+	 sscanf(argv[i+1],"%d",&sw_sort) != 1)
+	byebye();
+      i+=1;
+    } else if(streq(argv[i],"-r")) {
+      sw_prank=1;
+    } else if(streq(argv[i],"-e")) {
+      sw_printse=1;
+    } else if(streq(argv[i],"-v")) {
+      sw_verpose=1;
+    } else if(streq(argv[i],"-h")) {
+      sw_help=1;
+    } else if(streq(argv[i],"--no_au")) {
+      sw_pau=0;
+    } else if(streq(argv[i],"--no_bp")) {
+      sw_pbp=0;
+    } else if(streq(argv[i],"--no_pp")) {
+      sw_pba=0;
+    } else if(streq(argv[i],"--no_sh")) {
+      sw_pmc=0;
+    } else if(streq(argv[i],"--no_print")) {
+      sw_prt=0;
+    } else byebye();
+  }
+
+  if(nfile<1) {
+    error("must specify input-file");
+    byebye();
+  }
+
+  if(sw_cat||sw_cong) {
+    pvmats=NEW_A(nfile,double**);
+    semats=NEW_A(nfile,double**);
+    auxmats=NEW_A(nfile,double**);
+    obsvecs=NEW_A(nfile,double*);
+    revords=NEW_A(nfile,int*);
+  }
+
+  for(ifile=0;ifile<nfile;ifile++) {
+    fp=openfp(fnamev[ifile],fext_pv,"r",&cbuf);
+    if(sw_prt) printf("\n# reading %s",cbuf);
+    fileid=fread_i(fp); if(fileid!=1) error("wrong file type");
+    cm=pvnum=auxnum=0;
+    orderv=fread_ivec(fp,&cm); obsvec=fread_vec(fp,&cm);
+    outbit=fread_i(fp);
+    pvmat=fread_mat(fp,&cm,&pvnum);
+    semat=fread_mat(fp,&cm,&pvnum);
+    auxmat=fread_mat(fp,&cm,&auxnum);
+    if(!cm0 || cm<cm0) cm0=cm; /* take the min */
+    if(cm>cm1) cm1=cm; /* take the max */
+
+    revordv=new_ivec(cm);
+    for(i=0;i<cm;i++) revordv[i]=i;
+    if(sw_sort) {
+      xp=new_vec(cm);
+      /* sw_sort = 1:item, 2:lik, 3..(pvnum+2):pvs... */
+      j=sw_sort; if(j<0) {j=-j;};
+      if(j==1) { 
+	for(i=0;i<cm;i++) xp[i]=(double)orderv[i];
+      } else if(j==2) {
+	for(i=0;i<cm;i++) xp[i]=obsvec[i];
+      } else if(j<pvnum+3) {
+	for(i=0;i<cm;i++) xp[i]=-pvmat[i][j-3];
+      } else {
+	error("-s # <= %d\n",pvnum+2);
+      }
+      if(sw_sort<0) for(i=0;i<cm;i++) xp[i]=-xp[i];
+      sort(xp,revordv,cm);
+      free_vec(xp);
+    }
+
+    sw_bp=sw_ba=sw_au=sw_mc=j=0;
+    if(outbit & BPPVSW) {sw_bp=1; jbp=j; j+=BPPVNUM;}
+    if(outbit & BAPVSW) {sw_ba=1; jba=j; j+=BAPVNUM;}
+    if(outbit & MCPVSW) {sw_mc=1; jmc=j; j+=MCPVNUM;}
+    if(outbit & AUPVSW) {sw_au=1; jau=j; j+=AUPVNUM;}
+      
+    sw_bp = sw_bp && sw_pbp && sw_prt;
+    sw_ba = sw_ba && sw_pba && sw_prt;
+    sw_au = sw_au && sw_pau && sw_prt;
+    sw_mc = sw_mc && sw_pmc && sw_prt;
+
+    if(sw_prt && (sw_sort||sw_verpose)) {
+      printf("\n# %3d%c %3d%c %5d%c", 
+	     0,indicate_sort(0),1,indicate_sort(1),2,indicate_sort(2));
+      if(sw_au) 
+	for(i=jau;i<jau+AUPVNUM;i++) print_pvcol(3+i);
+      printf(" |");
+      if(sw_bp) 
+	for(i=jbp;i<jbp+BPPVNUM;i++) print_pvcol(3+i);
+      if(sw_ba) 
+	for(i=jba;i<jba+BAPVNUM;i++) print_pvcol(3+i);
+      if(sw_mc) 
+	for(i=jmc;i<jmc+MCPVNUM;i++) print_pvcol(3+i);
+    }
+    if(sw_prt) printf("\n# %4s %4s %6s", "rank","item","obs");
+    if(sw_au) {
+      print_pvname("au");
+      print_pvname("np");
+    }
+    if(sw_prt) printf(" |");
+    if(sw_bp) {
+      print_pvname("bp");
+    }
+    if(sw_ba) {
+      print_pvname("pp");
+    }
+    if(sw_mc) {
+      print_pvname("kh");
+      print_pvname("sh");
+      print_pvname("wkh");
+      print_pvname("wsh");
+    }
+    if(sw_prt) printf(" |");
+    if(sw_verpose && sw_au) {
+      printf(" %6s %6s %2s %6s %6s %6s %6s %6s","pf","rss","df","x","c",
+	     "th","a","dim");
+    }
+
+    for(i=0;i<cm;i++) {
+      ir=revordv[i];
+      if(sw_prt) printf("\n# %4d %4d %6.1f",i+1,orderv[ir]+labeladd,obsvec[ir]); 
+      j=0;
+      if(sw_au) {
+	j=jau;
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
+	print_pval(pvmat[ir][j+1],semat[ir][j+1]);
+      }
+      if(sw_prt) printf(" |");
+      if(sw_bp) {
+	j=jbp;
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
+      }
+      if(sw_ba) {
+	j=jba;
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
+      }
+      if(sw_mc) {
+	j=jmc;
+	print_pval(pvmat[ir][j+0],semat[ir][j+0]);
+	print_pval(pvmat[ir][j+1],semat[ir][j+1]);
+	print_pval(pvmat[ir][j+2],semat[ir][j+2]);
+	print_pval(pvmat[ir][j+3],semat[ir][j+3]);
+      }
+      if(sw_prt) printf(" |");
+      if(sw_verpose && sw_au) {
+	print_real(auxmat[ir][0]);     /* pf */
+	print_real(auxmat[ir][1]);     /* rss */
+	printf(" %2.0f",auxmat[ir][2]); /* df */
+	print_real(auxmat[ir][3]);     /* sid */
+	print_real(auxmat[ir][4]);     /* cv */
+	print_real(auxmat[ir][5]);     /* th */
+	if(auxnum>6) {
+	  if(auxmat[ir][6] != 0.0 && auxmat[ir][4] != 0.0)
+	    x=0.5*(auxmat[ir][6]-1.0)/auxmat[ir][4];
+	  else x=0.0;
+	  print_real(x);                 /* a */
+	  print_real(auxmat[ir][6]);     /* dim */
+	}
+      } 
+    }
+
+    if(sw_prank) {
+      printf("\n\n# %6s %6s %6s","rank","ordr","item");
+      for(i=0;i<cm;i++) {
+      ir=revordv[i];
+      printf("\n  %6d %6d %6d",i+1,ir+1,orderv[ir]+labeladd);
+      }
+    }
+
+    if(sw_cat||sw_cong){ /* saving the file */
+      pvmats[ifile]=pvmat;  semats[ifile]=semat;
+      auxmats[ifile]=auxmat; obsvecs[ifile]=obsvec;
+      revords[ifile]=revordv; free_ivec(orderv);
+    } else { /* discard them */
+      free_mat(pvmat); free_mat(semat); free_mat(auxmat);
+      free_ivec(orderv); free_vec(obsvec);
+    }
+    fclose(fp);  FREE(cbuf);
+    if(sw_prt) printf("\n");
+  }
+
+  if(sw_help && sw_prt) {
+    printf("\n# ABBREVIATIONS");
+    printf("\n# rank: rank of the item");
+    printf("\n# ordr: the input order of the item");
+    printf("\n# item: the label of the item");
+    printf("\n# obs:  observed statistic value");
+    printf("\n# --- p-values using the multiscale bootstrap ---");
+    printf("\n# au:  the approximately unbiased test");
+    printf("\n# np:  the naive p-value");
+    printf("\n# --- p-values using the unscaled bootstrap ---");
+    printf("\n# bp:  the bootstrap probability");
+    printf("\n# pp:  the Bayesian posterior probability");
+    printf("\n# kh:  the Kishino-Hasegawa test");
+    printf("\n# sh:  the Shimodaira-Hasegawa test");
+    printf("\n# wkh: the weighted KH-test");
+    printf("\n# wsh: the weighted SH-test");
+    printf("\n# --- details of the au test ---");
+    printf("\n# pf:  diagnostic p-value");
+    printf("\n# rss: fitting error");
+    printf("\n# df:  fitting degrees of freedom");
+    printf("\n# x:   signed distance");
+    printf("\n# c:   curvature");
+    printf("\n# th:  threshold for the region");
+    printf("\n#\n# OPTIONS");
+    printf("\n# -s: sort by the item");
+    printf("\n# -v: show the details");
+    printf("\n# -e: show the standard errors");
+    printf("\n# --no_au: suppress au test");
+    printf("\n# --no_bp: suppress bp test");
+    printf("\n# --no_pp: suppress pp test");
+    printf("\n# --no_sh: suppress sh test");
+    printf("\n# --no_print: suppress printing");
+    printf("\n# -o file: aggregating output");
+    printf("\n# -c file: testing congruence");
+    printf("\n");
+  }
+
+  if(trc1>0) trc1--; if(trc1>=cm0) trc1=cm0-1;
+  if(!trc) trc=cm0;
+  trc2=trc1+trc-1; if(trc2>=cm0) trc2=cm0-1;
+
+  if(sw_cat) { /* aggregating the results */
+    printf("\n# aggregating from item %d to item %d",trc1+1,trc2+1);
+
+    if(fname_cat) {
+      fp=openfp(fname_cat,fext_cat,"w",&cbuf);
+      printf("\n# writing %s",cbuf);
+    } else {
+      fp=STDOUT;
+      printf("\n# writing to stdout\n");
+    }
+    outmat=new_mat(pvnum*2+auxnum+1,nfile);
+    for(i=trc1;i<=trc2;i++) {
+      /* item (i+1) */
+      for(ifile=0;ifile<nfile;ifile++) {
+	ir=revords[ifile][i]; k=0;
+	for(j=0;j<pvnum;j++) outmat[k++][ifile]=pvmats[ifile][ir][j];
+	for(j=0;j<pvnum;j++) outmat[k++][ifile]=semats[ifile][ir][j];
+	for(j=0;j<auxnum;j++) outmat[k++][ifile]=auxmats[ifile][ir][j];
+	outmat[k++][ifile]=obsvecs[ifile][ir];
+      }
+      fwrite_mat(fp,outmat,pvnum*2+auxnum+1,nfile); 
+      if(fname_cat) putdot();
+    }
+    if(fname_cat) {fclose(fp); FREE(cbuf);}
+  }
+
+  if(sw_cong) { /* congruence */
+    cm=trc2-trc1+2;
+    pvmat=new_mat(cm,pvnum);
+    pvmat2=new_mat(cm,pvnum);
+    semat=new_mat(cm,pvnum);
+    auxmat=new_mat(cm,auxnum);
+    orderv=new_ivec(cm);
+    obsvec=new_vec(cm);
+    
+    /* calculating p-value */
+    for(j=0;j<pvnum;j++) {
+      z=0.0;
+      for(i=0;i<cm-1;i++) {
+	y=1.00;
+	for(ifile=0;ifile<nfile;ifile++) {
+	  ir=revords[ifile][i+trc1]; 
+	  x=pvmats[ifile][ir][j];
+	  if(x<y) y=x; /* y=min(x) */
+	}
+	pvmat[i][j]=y;
+	if(y>z) z=y; /* z=max(y) */
+      }
+      pvmat[i][j]=z;
+    }
+
+    /* calculating log-likelihood */
+    for(i=0;i<cm-1;i++) {
+      y=0.0;
+      for(ifile=0;ifile<nfile;ifile++) {
+	ir=revords[ifile][i+trc1];
+	x=obsvecs[ifile][ir];
+	if(x<0.0) x=0.0;
+	y+=x;
+      }
+      obsvec[i]=y;
+      orderv[i]=i;
+    }
+    orderv[i]=i;
+
+    /* sorting items */
+    sort(obsvec,orderv,cm-1);
+    x=obsvec[0];
+    for(i=0;i<cm-1;i++) {
+      obsvec[i]=obsvec[i]-x;
+    }
+    obsvec[0]=-obsvec[1];
+    for(i=0;i<cm;i++) {
+      for(j=0;j<pvnum;j++) 
+	pvmat2[i][j]=pvmat[orderv[i]][j];
+    }
+
+    if(fname_cong) {
+      fp=openfp(fname_cong,fext_cong,"w",&cbuf);
+      printf("\n# writing %s",cbuf);
+    } else {
+      fp=STDOUT;
+      printf("\n# writing to stdout\n");
+    }
+
+    fprintf(fp,"\n# ID:\n%d\n",1); 
+    fprintf(fp,"\n# ITEM:\n"); fwrite_ivec(fp,orderv,cm);
+    fprintf(fp,"\n# STAT:\n"); fwrite_vec(fp,obsvec,cm);
+    fprintf(fp,"\n# BIT:\n%d\n",outbit); 
+    fprintf(fp,"\n# PV:\n"); fwrite_mat(fp,pvmat2,cm,pvnum);  
+    fprintf(fp,"\n# SE:\n"); fwrite_mat(fp,semat,cm,pvnum);  
+    fprintf(fp,"\n# AX:\n"); fwrite_mat(fp,auxmat,cm,auxnum);  
+
+    if(fname_cong) {fclose(fp); FREE(cbuf);}
+  }
+
+  printf("\n");
+  return 0;
+}
+@
+
+
+1.14
+log
+@outputs list of rank, ordr, and item
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2002-09-03 13:25:35 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.13 2002/09/03 01:57:48 shimo Exp shimo $";
+d116 1
+a116 1
+  double x,y,z,*xp,*yp;
+@
+
+
+1.13
+log
+@sort switch accepts column number
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2002-09-03 10:52:42 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.12 2002/08/20 15:19:16 shimo Exp shimo $";
+d23 13
+a47 2
+int sw_printse=0;
+
+d54 7
+d63 1
+a63 1
+  printf(" %6d",col);
+d67 1
+a74 12
+int sw_help=0;
+int sw_verpose=0;
+int sw_pba=1;
+int sw_pau=1;
+int sw_pbp=1;
+int sw_pmc=1;
+int sw_cat=0;
+int sw_prt=1;
+int sw_sort=0;
+int sw_cong=0;
+int labeladd=1;
+
+d156 2
+d234 3
+a236 2
+    if(sw_prt && sw_verpose) {
+      printf("\n# %4d %4d %6d", 0,1,2);
+d273 1
+a273 1
+      if(sw_prt) printf("\n# %4d %4d %6.1f",ir+1,orderv[ir]+labeladd,obsvec[ir]);
+d314 8
+d336 2
+a337 1
+    printf("\n# rank: ranking of the item");
+@
+
+
+1.12
+log
+@minor change for pv file format
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2002-08-20 22:53:02 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.11 2002/04/18 04:21:35 shimo Exp shimo $";
+d43 6
+a55 15
+int *permrev(int *order, int *rev, int n)
+{
+  int i;
+  static int m=0, *sav=NULL;
+  if(n>m) {sav=renew_ivec(sav,n); m=n;}
+  if(!rev) rev=new_ivec(n);
+  for(i=0;i<n;i++) {rev[i]=i; sav[i]=order[i];}
+  isort(order,rev,n);
+  for(i=0;i<n;i++) {
+    /*    if(order[i]!=i) warning("invalid perm vector"); */
+    order[i]=sav[i];
+  }
+  return rev;
+}
+
+d109 1
+a109 1
+  double x,y,z;
+d145 4
+a148 1
+      sw_sort=1;
+d194 19
+a212 1
+    revordv=permrev(orderv,NULL,cm); /* for sorting the item */
+d225 12
+d262 1
+a262 1
+      if(sw_sort) ir=revordv[i]; else ir=i;
+@
+
+
+1.11
+log
+@testing congruence (-c) option
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2002-04-18 13:07:03 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.10 2002/02/28 07:58:10 shimo Exp shimo $";
+d59 1
+a59 1
+    if(order[i]!=i) warning("invalid perm vector");
+d75 1
+d132 5
+d239 1
+a239 1
+      if(sw_prt) printf("\n# %4d %4d %6.1f",ir+1,orderv[ir]+1,obsvec[ir]);
+d269 8
+a276 6
+	print_real(auxmat[ir][6]);     /* th */
+	if(auxmat[ir][5] != 0.0 && auxmat[ir][4] != 0.0)
+	  x=0.5*(auxmat[ir][5]-1.0)/auxmat[ir][4];
+	else x=0.0;
+	print_real(x);                 /* a */
+	print_real(auxmat[ir][5]);     /* dim */
+@
+
+
+1.10
+log
+@handles chi fitting with new fields: dim and a
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2002-02-27 23:15:11 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.9 2002/01/24 03:04:42 shimo Exp shimo $";
+d74 1
+d76 2
+a77 2
+char *fname_cat=NULL;
+char *fext_cat=".out";
+d114 1
+d117 1
+a117 1
+  double x;
+d144 3
+d173 1
+a173 1
+  if(sw_cat) {
+d272 1
+a272 1
+    if(sw_cat){ /* saving the file */
+d316 1
+d320 4
+a324 3
+    if(trc1>0) trc1--; if(trc1>=cm0) trc1=cm0-1;
+    if(!trc) trc=cm0;
+    trc2=trc1+trc-1; if(trc2>=cm0) trc2=cm0-1;
+d344 2
+a345 1
+      fwrite_mat(fp,outmat,pvnum*2+auxnum+1,nfile); putdot();
+d349 71
+a420 1
+
+@
+
+
+1.9
+log
+@minor change
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2002-01-15 13:36:15 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.8 2002/01/10 12:48:00 shimo Exp shimo $";
+d27 8
+d45 1
+a45 1
+  printf(" %6.3f",pv);
+d49 1
+d103 1
+a103 1
+#define AUAUXNUM 6
+d115 1
+d222 2
+a223 1
+      printf(" %6s %6s %2s %6s %6s %6s","pf","rss","df","x","c","th");
+d253 11
+a263 3
+	printf(" %6.3f %6.3f %2.0f %6.3f %6.3f %6.3f",
+	       auxmat[ir][0],auxmat[ir][1],auxmat[ir][2],
+	       auxmat[ir][3],auxmat[ir][4],auxmat[ir][5]);
+@
+
+
+1.8
+log
+@BA is printed
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2002-01-10 21:39:18 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.7 2001/12/10 05:52:47 shimo Exp shimo $";
+d144 1
+a144 1
+    } else if(streq(argv[i],"--no_ba")) {
+d202 1
+a202 1
+      print_pvname("ba");
+d270 1
+a270 1
+    printf("\n# ba:  the Bayesian posterior");
+d288 1
+a288 1
+    printf("\n# --no_ba: suppress ba test");
+@
+
+
+1.7
+log
+@-s option for sort by item
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-12-10 14:33:13 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.6 2001/08/10 06:10:53 shimo Exp shimo $";
+d58 1
+d78 7
+d86 1
+d89 2
+d92 1
+d95 1
+d99 1
+a99 1
+  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,cm0=0,cm1=0;
+d104 1
+a104 1
+  int sw_bp,sw_mc,sw_au;
+d144 2
+d169 1
+d172 1
+d181 5
+a185 4
+    sw_bp=sw_au=sw_mc=j=0;
+    if(pvnum & BPPVNUM) {sw_bp=1; jbp=j; j+=BPPVNUM;}
+    if(pvnum & MCPVNUM) {sw_mc=1; jmc=j; j+=MCPVNUM;}
+    if(pvnum & AUPVNUM) {sw_au=1; jau=j; j+=AUPVNUM;}
+a186 4
+    if(sw_bp + sw_au + sw_mc == 0) {
+      warning("file type unknown (pv:%d, aux:%d)",pvnum,auxnum);
+    }
+
+d188 1
+d201 3
+d229 4
+d270 1
+d288 1
+@
+
+
+1.6
+log
+@bp->np, nbp->bp. p-values are now divided into three groups (au,bp,sh) instead of two (au,sh).
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-06-27 11:48:22 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.5 2001/05/31 02:47:52 shimo Exp shimo $";
+d44 2
+d47 1
+a47 1
+  for(i=0;i<n;i++) rev[i]=i;
+d49 4
+a52 1
+  for(i=0;i<n;i++) if(order[i]!=i) error("invalid perm vector");
+d63 1
+d86 1
+a86 1
+  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,jbp,cm0=0;
+d89 1
+a89 1
+  int *orderv; double *obsvec;
+d119 2
+d160 3
+d198 2
+a199 1
+      if(sw_prt) printf("\n# %4d %4d %6.1f",i+1,orderv[i]+1,obsvec[i]);
+d203 2
+a204 2
+	print_pval(pvmat[i][j+0],semat[i][j+0]);
+	print_pval(pvmat[i][j+1],semat[i][j+1]);
+d209 1
+a209 1
+	print_pval(pvmat[i][j+0],semat[i][j+0]);
+d213 4
+a216 4
+	print_pval(pvmat[i][j+0],semat[i][j+0]);
+	print_pval(pvmat[i][j+1],semat[i][j+1]);
+	print_pval(pvmat[i][j+2],semat[i][j+2]);
+	print_pval(pvmat[i][j+3],semat[i][j+3]);
+d221 2
+a222 2
+	       auxmat[i][0],auxmat[i][1],auxmat[i][2],
+	       auxmat[i][3],auxmat[i][4],auxmat[i][5]);
+d229 1
+a229 1
+      revords[ifile]=permrev(orderv,NULL,cm); free_ivec(orderv);
+d260 1
+@
+
+
+1.5
+log
+@no_mc -> no_sh
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-05-30 10:08:07 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.4 2001/05/29 06:35:57 shimo Exp shimo $";
+d51 1
+d54 1
+d71 2
+a72 1
+#define MCPVNUM 5
+d74 1
+d80 1
+a80 1
+  int i,j,k,ir,ifile,nfile,cm,pvnum,auxnum,jau,jmc,cm0=0;
+d85 1
+a85 1
+  int sw_mc, sw_au;
+d117 2
+d121 2
+d153 6
+a158 10
+    sw_au=sw_mc=j=0;
+    if((pvnum==MCPVNUM || pvnum==(MCPVNUM+AUPVNUM)) &&
+	(auxnum==MCAUXNUM || auxnum==(MCAUXNUM+AUAUXNUM))) {
+      sw_mc=1; jmc=j; j+=MCPVNUM;
+    }
+    if((pvnum==AUPVNUM || pvnum==(MCPVNUM+AUPVNUM)) &&
+	      (auxnum==AUAUXNUM || auxnum==(MCAUXNUM+AUAUXNUM))) {
+      sw_au=1; jau=j; j+=AUPVNUM;
+    }
+    if(sw_au + sw_mc == 0) {
+d162 1
+d169 4
+a174 1
+    if(sw_prt) printf(" |");
+a175 1
+      print_pvname("nbp");
+d183 1
+a183 1
+      printf(" %6s %6s %2s %6s %6s %6s","pf","rss","df","d","c","th");
+d195 4
+a204 1
+	print_pval(pvmat[i][j+4],semat[i][j+4]);
+d224 32
+@
+
+
+1.4
+log
+@*** empty log message ***
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-05-25 19:04:14 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.3 2001/05/16 22:15:48 shimo Exp shimo $";
+d115 1
+a115 1
+    } else if(streq(argv[i],"--no_mc")) {
+d168 1
+a168 1
+      print_pvname("bp0");
+@
+
+
+1.3
+log
+@aggregation of p-value files
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-05-15 07:51:47 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.2 2001/05/05 09:08:59 shimo Exp shimo $";
+d170 1
+a170 1
+      print_pvname("mc");
+d172 1
+a172 1
+      print_pvname("wmc");
+@
+
+
+1.2
+log
+@rewritten to be compatible with consel
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-05-05 17:23:32 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id: catpv.c,v 1.1 2001/04/16 06:59:57 shimo Exp shimo $";
+d41 10
+d52 15
+d68 2
+a69 1
+#define MCPVNUM 4
+d76 1
+a76 1
+  int i,j,ifile,nfile,cm,pvnum,auxnum,jau,jmc;
+d82 1
+d96 13
+d113 6
+d126 9
+a134 1
+  
+d137 1
+a137 1
+    printf("\n# reading %s",cbuf);
+d143 1
+d158 4
+a161 1
+    printf("\n# %4s %4s %6s", "rank","item","obs");
+d166 1
+d171 2
+a172 1
+      print_pvname("ms");
+d174 1
+d176 1
+a176 1
+      printf(" %6s %6s %2s %6s %6s %6s","pf","rss","df","x","c","th");
+d180 1
+a180 1
+      printf("\n# %4d %4d %6.1f",i+1,orderv[i]+1,obsvec[i]);
+d187 1
+d194 1
+d196 1
+d204 8
+a211 2
+    free_mat(pvmat); free_mat(semat); free_mat(auxmat);
+    free_ivec(orderv); free_vec(obsvec);
+d213 29
+a241 1
+    printf("\n");
+d243 1
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 1
+a5 1
+  Time-stamp: <2001-04-16 15:59:54 shimo>
+d20 1
+a20 1
+static const char rcsid[] = "$Id$";
+d22 25
+d50 1
+a50 1
+  int i,j,ifile,nfile,cm,mx1size;
+d52 65
+a116 18
+  char *fname;
+  double *pvvec=NULL; /* pvalue */
+  double *sevec=NULL; /* stderr of pv */
+  int *ix1; double *ax1; double **mx1; /* auxiliary info */
+
+  nfile=argc;
+
+  for(ifile=1;ifile<nfile;ifile++) {
+    fname=argv[ifile];
+    fp=fopen(fname,"r");
+    if(fp==NULL) error("cant open %s",fname);
+    else printf("\n# read %s",fname);
+    cm=mx1size=0;
+    pvvec=fread_vec(fp,&cm);
+    sevec=fread_vec(fp,&cm);
+    ix1=fread_ivec(fp,&cm);
+    ax1=fread_vec(fp,&cm);
+    mx1=fread_mat(fp,&cm,&mx1size);
+a117 2
+    printf("\n# %4s %4s %6s %6s %6s %6s %6s %6s",
+	   "rank","item","obs","pval","pvse","perr","x","c");
+d119 19
+a137 3
+      printf("\n# %4d %4d %6.1f %6.3f %6.3f %6.3f %6.3f %6.3f",
+	     i+1,ix1[i]+1,ax1[0]-ax1[i],pvvec[i],sevec[i],mx1[i][0],
+	     mx1[i][3],mx1[i][4]);
+d139 4
+a142 1
+    fclose(fp);
+d146 1
+@

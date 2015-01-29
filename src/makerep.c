@@ -20,7 +20,7 @@
 #include "misc.h"
 #include "freadmat.h"
 
-static const char rcsid[] = "$Id: makerep.c,v 1.4 2005/09/20 07:58:08 shimo Exp shimo $";
+static const char rcsid[] = "$Id: makerep.c,v 1.5 2011/05/12 07:20:53 shimo Exp $";
 
 typedef struct {
   double *ve;

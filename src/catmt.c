@@ -23,7 +23,7 @@
 #include "misc.h"
 #include "rand.h"
 
-static const char rcsid[] = "$Id: catmt.c,v 1.2 2001/05/29 06:35:44 shimo Exp shimo $";
+static const char rcsid[] = "$Id: catmt.c,v 1.3 2001/08/10 06:04:55 shimo Exp $";
 
 typedef struct {
   int m;

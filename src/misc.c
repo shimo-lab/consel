@@ -20,7 +20,7 @@
 #include <time.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id: misc.c,v 1.11 2008/09/12 08:17:05 shimo Exp shimo $";
+static const char rcsid[] = "$Id: misc.c,v 1.12 2011/05/12 07:21:18 shimo Exp $";
 
 /*
   error message handling

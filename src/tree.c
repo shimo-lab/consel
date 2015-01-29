@@ -9,7 +9,7 @@
 
 */
 
-static const char rcsid[] = "$Id: tree.c,v 1.2 2001/05/29 06:30:44 shimo Exp shimo $";
+static const char rcsid[] = "$Id: tree.c,v 1.3 2002/04/16 15:58:50 shimo Exp $";
 
 #include <stdio.h>
 #include <ctype.h>

@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include "misc.h"
 
-static const char rcsid[] = "$Id$";
+static const char rcsid[] = "$Id: catass.c,v 1.1 2001/06/22 05:05:55 shimo Exp $";
 
 void putdot() {putchar('.'); fflush(STDOUT);}
 void byebye() {error("error in command line");}

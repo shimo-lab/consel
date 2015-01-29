@@ -2,7 +2,7 @@
   opt.h
   Time-stamp: <2002-03-01 13:32:40 shimo>
 
-  $Id: opt.h,v 1.1 2002/02/28 07:55:49 shimo Exp shimo $
+  $Id: opt.h,v 1.2 2002/03/01 09:38:22 shimo Exp $
 */
 
 

@@ -36,7 +36,7 @@
   #
 */
 
-static const char rcsid[] = "$Id: consel.c,v 1.19 2004/11/11 08:14:09 shimo Exp shimo $";
+static const char rcsid[] = "$Id: consel.c,v 1.20 2011/05/12 07:23:08 shimo Exp $";
 
 #include <stdio.h>
 #include <stdlib.h>

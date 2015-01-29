@@ -3,7 +3,7 @@
   misc.h: header for misc.c
 
   Time-stamp: <2011-01-25 16:57:06 shimo>
-  $Id: misc.h,v 1.11 2008/09/12 08:17:07 shimo Exp shimo $
+  $Id: misc.h,v 1.12 2011/05/12 07:21:28 shimo Exp $
 
   shimo@ism.ac.jp 
   Hidetoshi Shimodaira
