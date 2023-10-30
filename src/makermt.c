@@ -197,7 +197,7 @@ int genrmt(char *infile, char *outfile)
   printf("\n# start generating total %d replicates for %d items",j,mm);
   fflush(STDOUT);
   t0=get_time();
-
+  // <---------------------------------- parallelize this loop potentially
   for(i=0;i<kk;i++) {
     repmat=new_lmat(mm,bb[i]);
     scaleboot(datmat,repmat,mm,nn,bn[i],bb[i]);
