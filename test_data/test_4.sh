@@ -1,8 +1,8 @@
 #!/bin/bash
 
 mkdir -p results
-TESTDIR=~/GroupProject/consel/test_data
-BINLOC=~/GroupProject/consel/src
+TESTDIR=~/consel/test_data
+BINLOC=~/consel/src
 PATH=..:../src:../bin:$PATH
 
 seqmt --puzzle $TESTDIR/RAxML_perSiteLLs_ycf2_ge.trees.sitelh $TESTDIR/ycf2_ge_CONSEL.mt
