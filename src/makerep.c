@@ -60,7 +60,6 @@ int *orderv=NULL; /* cm-vector of the item id's */
 int mm; int nn;
 double **datmat=NULL; /* mm x nn matrix of data */
 double *datvec=NULL;  /* mm-vector of data */
-
 /* for rep file */
 double *obsvec=NULL; /* cm-vector of observed statistics */
 

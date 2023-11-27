@@ -23,6 +23,7 @@
 #include "rand.h"
 #include "misc.h"
 #include "freadmat.h"
+#include <omp.h>
 
 static const char rcsid[] = "$Id: makermt.c,v 1.16 2010/01/29 16:45:36 shimo Exp $";
 
@@ -37,7 +38,8 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 		   int m,  /* number of items */
 		   int n,  /* original sample size */
 		   int bn, /* replicate sample size */
-		   int bb  /* number of bootstrap replicates */
+		   int bb,  /* number of bootstrap replicates */
+       unsigned short *seed /* seed for random num */
 		   ) {
   int i,j,k;
   double *wv,*rv,*xp;
@@ -49,7 +51,9 @@ double **scaleboot(double **datmat, /* m x n data matrix */
 
   for(i=0;i<bb;i++) {
     /* first, get wv=weight vector */
-    mrandlist(rv,bn);
+    
+    mrandlist_thread(rv,bn, seed);
+    
     for(j=0;j<n;j++) wv[j]=0.0;
     for(j=0;j<bn;j++) {
       k = (int) (rv[j]*n);
@@ -108,11 +112,12 @@ double *datvec=NULL;
 
 int genrmt(char *infile, char *outfile)
 {
+  double start, end;
   int i,j;
   FILE *fp;
   double x,t0,t1;
   char *cbuf,*fext;
-
+  start = omp_get_wtime();
   /* open file */
   switch(seqmode) {
   case SEQ_MOLPHY: fext=fext_molphy; break;
@@ -166,7 +171,6 @@ int genrmt(char *infile, char *outfile)
     bn[i]=(int)(rr[i]*nn); /* sample size for bootstrap */
     rr1[i]=(double)bn[i]/nn; /* recalculate rr for integer adjustment */
   }
-
   /* open out file */
   if(outfile) {
     /* vt ascii write to file */
@@ -190,6 +194,7 @@ int genrmt(char *infile, char *outfile)
     printf("\n# RMAT:\n");
     printf("%d\n",kk);
   }
+  
 
 
   /* generating the replicates by resampling*/
@@ -198,16 +203,31 @@ int genrmt(char *infile, char *outfile)
   fflush(STDOUT);
   t0=get_time();
   // <---------------------------------- parallelize this loop potentially
-  for(i=0;i<kk;i++) {
-    repmat=new_lmat(mm,bb[i]);
-    scaleboot(datmat,repmat,mm,nn,bn[i],bb[i]);
-    if(outfile) {
-      fwrite_bmat(fp,repmat,mm,bb[i]);
-      putdot();
-    } else {
-      printf("\n## RMAT[%d]:\n",i); write_mat(repmat,mm,bb[i]);
+
+  unsigned short seed[3];
+  omp_set_num_threads(2);
+  #pragma omp parallel
+  { 
+    seed[0] = 1;
+    seed[1] = 1;
+    seed[2] = omp_get_thread_num();
+    printf("Hello from thread: %d", omp_get_thread_num());
+
+    #pragma omp for firstprivate(seed) private(i, repmat)
+    for(i=0;i<kk;i++) {
+      repmat=new_lmat(mm,bb[i]);
+      scaleboot(datmat,repmat,mm,nn,bn[i],bb[i], seed);
+     #pragma omp critical 
+     {
+      if(outfile) {
+        fwrite_bmat(fp,repmat,mm,bb[i]);
+        putdot();
+      } else {
+        printf("\n## RMAT[%d]:\n",i); write_mat(repmat,mm,bb[i]);
+      }
+     }
+      free_lmat(repmat,mm);
     }
-    free_lmat(repmat,mm);
   }
 
   t1=get_time();
@@ -219,7 +239,8 @@ int genrmt(char *infile, char *outfile)
 
   /* freeing buffers */
   free_vec(bn); free_vec(rr1); free_vec(datvec); free_mat(datmat);
-
+  end = omp_get_wtime();
+  printf("\nTIME: %f\n", (end-start));
   return 0;
 }
 
