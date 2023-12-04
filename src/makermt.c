@@ -24,47 +24,6 @@
 #include "misc.h"
 #include "freadmat.h"
 #include <omp.h>
-#include <sys/sysinfo.h>
-#include <sys/resource.h>
-#include <sys/types.h>
-#include <stdint.h>
-
-/*
-  MEMORY MANAGEMENT TOOLS
-*/
-typedef struct {
-    uint32_t virtualMem;
-    uint32_t physicalMem;
-} processMem_t;
-int parseLine(char *line) {
-        // This assumes that a digit will be found and the line ends in " Kb".
-        int i = strlen(line);
-        const char *p = line;
-        while (*p < '0' || *p > '9') p++;
-        line[i - 3] = '\0';
-        i = atoi(p);
-        return i;
-}
-
-void GetProcessMemory(processMem_t* processMem) {
-    FILE *file = fopen("/proc/self/status", "r");
-    char line[128];
-
-    while (fgets(line, 128, file) != NULL) {
-        if (strncmp(line, "VmSize:", 7) == 0) {
-            processMem->virtualMem = parseLine(line);
-        }
-
-        if (strncmp(line, "VmRSS:", 6) == 0) {
-            processMem->physicalMem = parseLine(line);
-        }
-    }
-    fclose(file);
-}
-/*
-  END OF MEMORY MANAGEMENT TOOLS
-*/
-
 
 static const char rcsid[] = "$Id: makermt.c,v 1.16 2010/01/29 16:45:36 shimo Exp $";
 
@@ -96,6 +55,7 @@ double **scaleboot(double **datmat,     /* m x n data matrix */
   {
     /* first, get wv=weight vector */
 
+    // generate a list of random values for each thread safely
     mrandlist_thread(rv, bn, seed);
 
     for (j = 0; j < n; j++)
@@ -179,7 +139,7 @@ int genrmt(char *infile, char *outfile)
   FILE *fp;
   double x, t0, t1;
   char *cbuf, *fext;
-  //start = omp_get_wtime();
+
   /* open file */
   switch (seqmode)
   {
@@ -308,19 +268,15 @@ int genrmt(char *infile, char *outfile)
   double ***repmat_array;
   repmat_array = (double ***)malloc(kk * sizeof(double **));
 
-  //omp_set_num_threads(2);
-
 #pragma omp parallel
   {
-    // set random seed for each thread
+    // set random seed for each thread, used for RNG in scaleboot
     unsigned short seed[3];
     seed[0] = 1;
     seed[1] = 1;
     seed[2] = omp_get_thread_num();
-    // introduce themselves
-   // printf("\nHello from thread: %d\n", omp_get_thread_num());
 
-// perform calculations in parallel
+// perform scaleboot calculations in parallel
 #pragma omp for private(i)
     for (i = 0; i < kk; i++)
     {
@@ -329,7 +285,7 @@ int genrmt(char *infile, char *outfile)
     }
   }
 
- // write to the output file on the master thread
+ // write to the output file on the master thread, used by consel.c
   for (i = 0; i < kk; i++)
   {
     if (outfile)
@@ -342,6 +298,8 @@ int genrmt(char *infile, char *outfile)
       printf("\n## RMAT[%d]:\n", i);
       write_mat(repmat_array[i], mm, bb[i]);
     }
+    
+    //free written portion of repmat
     free_lmat(repmat_array[i], mm);
   }
   free(repmat_array);
@@ -360,8 +318,6 @@ int genrmt(char *infile, char *outfile)
   free_vec(rr1);
   free_vec(datvec);
   free_mat(datmat);
-  //end = omp_get_wtime();
-  //printf("\nTIME: %f\n", (end - start));
   return 0;
 }
 
@@ -371,10 +327,6 @@ int main(int argc, char **argv)
   int i, j, mf;
   FILE *fp;
   char *cbuf, **infiles, **outfiles;
-  // MEMORY MANAGEMENT/TIME OUTPUT
-  double start, end;
-  processMem_t myMem;
-  start = omp_get_wtime();
 
   printf("# %s", rcsid);
 
@@ -535,11 +487,7 @@ int main(int argc, char **argv)
       fname_rmt = rmvaxt(fname_mt);
     genrmt(fname_mt, fname_rmt);
   }
-  end = omp_get_wtime();
-  GetProcessMemory(&myMem);
 
   printf("\n# exit normally\n");
-  
-  printf("\n%f,%u,%u,%d\n",(end - start),myMem.virtualMem, myMem.physicalMem, omp_get_max_threads());
   exit(0);
 }

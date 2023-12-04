@@ -30,6 +30,7 @@ void mrandlist(double *a, int len)
   for ( i = 0; i < len; i++ ) a[i]= mrand();
 }
 
+/* mrandlist_thread -- fills the array a[] with len random numbers, can be used in multithreading */
 void mrandlist_thread(double *a, int len, unsigned short *seed)
 {
   int i;
