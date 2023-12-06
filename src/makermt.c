@@ -268,7 +268,7 @@ int genrmt(char *infile, char *outfile)
   double ***repmat_array;
   repmat_array = (double ***)malloc(kk * sizeof(double **));
 
-#pragma omp parallel
+  #pragma omp parallel
   {
     // set random seed for each thread, used for RNG in scaleboot
     unsigned short seed[3];
@@ -276,8 +276,8 @@ int genrmt(char *infile, char *outfile)
     seed[1] = 1;
     seed[2] = omp_get_thread_num();
 
-// perform scaleboot calculations in parallel
-#pragma omp for private(i)
+    // perform scaleboot calculations in parallel
+    #pragma omp for private(i)
     for (i = 0; i < kk; i++)
     {
       repmat_array[i] = new_lmat(mm, bb[i]);
