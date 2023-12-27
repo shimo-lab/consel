@@ -20,12 +20,21 @@
 #include <stdio.h>
 #include "misc.h"
 #include "rand.h"
+#include <stdlib.h>
+#include <stdint.h>
 
 /* mrandlist -- fills the array a[] with len random numbers */
 void mrandlist(double *a, int len)
 {
   int i;
-  for ( i = 0; i < len; i++ ) a[i]=mrand();
+  for ( i = 0; i < len; i++ ) a[i]= mrand();
+}
+
+/* mrandlist_thread -- fills the array a[] with len random numbers, can be used in multithreading */
+void mrandlist_thread(double *a, int len, unsigned short *seed)
+{
+  int i;
+  for ( i = 0; i < len; i++ ) a[i]= erand48(seed);
 }
 
 void init_genrand(unsigned long s);

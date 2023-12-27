@@ -6,6 +6,7 @@ double genrand_real2(void); /* returns random # in [0,1) */
 #define mrand() genrand_real2()
 void smrand(unsigned long seed);   /* seeds mrand() */
 void mrandlist(double *x, int len);  /* generates len random numbers */
+void mrandlist_thread(double *x, int len, unsigned short *seed); /* generates len random numbers that are thread safe */
 
 #define runif() mrand() /* defines uniform dist on [0,1] */
 double rnorm(void);  /* normal dist */
