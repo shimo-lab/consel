@@ -3,7 +3,7 @@ CONSEL: for assessing the confidence of phylogenetic tree selection
 
 Hidetoshi Shimodaira
 
-http://www.sigmath.es.osaka-u.ac.jp/shimo-lab/prog/consel/
+https://stat.sys.i.kyoto-u.ac.jp/prog/consel/
 
 WHAT IS CONSEL?
 
